@@ -7,7 +7,7 @@ Modbus tcp client that stores its data (registers) in shared memory objects.
 git submodule init
 mkdir build
 cd build
-cmake .. -DCMAKE_CXX_COMPILER=$(which clang++)
+cmake .. -DCMAKE_CXX_COMPILER=$(which clang++) -DCMAKE_BUILD_TYPE=Release
 cmake -build . 
 ```
 
