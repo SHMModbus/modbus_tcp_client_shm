@@ -4,23 +4,23 @@ cmake_minimum_required(VERSION 3.13.4 FATAL_ERROR)
 # ======================================================================================================================
 
 # project
-project(CMAKE_Template_Project LANGUAGES CXX VERSION 0.0.1)
+project(Modbus_TCP_client_shm LANGUAGES CXX VERSION 0.0.1)
 
 # settings
-set(Target "Template_Project")    # Executable name (without file extension!)
-set(STANDARD 20)                  # C++ Standard
+set(Target "Modbus_TCP_client_shm")    # Executable name (without file extension!)
+set(STANDARD 17)                  # C++ Standard
 set(ARCHITECTURE "native")        # CPU architecture to optimize for (only relevant if OPTIMIZE_FOR_ARCHITECTURE is ON)
 
 # options
-option(BUILD_DOC "Build documentation" ON)
+option(BUILD_DOC "Build documentation" OFF)
 option(COMPILER_WARNINGS "Enable compiler warnings" ON)
-option(ENABLE_MULTITHREADING "Link the default multithreading library for the current target system" ON)
+option(ENABLE_MULTITHREADING "Link the default multithreading library for the current target system" OFF)
 option(MAKE_32_BIT_BINARY "Compile as 32 bit application. No effect on 32 bit Systems" OFF)
-option(OPENMP "enable openmp" ON)
+option(OPENMP "enable openmp" OFF)
 option(OPTIMIZE_DEBUG "apply optimizations also in debug mode" ON)
 option(CLANG_FORMAT "use clang-format" ON)
 option(CLANG_TIDY "use clang-tidy" OFF)
-option(OPTIMIZE_FOR_ARCHITECTURE "enable optimizations for specified architecture" ON)
+option(OPTIMIZE_FOR_ARCHITECTURE "enable optimizations for specified architecture" OFF)
 option(LTO_ENABLED "enable interprocedural and link time optimizations" ON)
 option(COMPILER_EXTENSIONS "enable compiler specific C++ extensions" OFF)
 
