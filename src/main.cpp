@@ -86,6 +86,7 @@ int main(int argc, char **argv) {
 
     // print usage
     if (args.count("help")) {
+        options.set_width(120);
         std::cout << options.help() << std::endl;
         std::cout << std::endl;
         std::cout << "This application uses the following libraries:" << std::endl;
