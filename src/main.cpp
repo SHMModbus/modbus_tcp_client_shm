@@ -89,6 +89,14 @@ int main(int argc, char **argv) {
         options.set_width(120);
         std::cout << options.help() << std::endl;
         std::cout << std::endl;
+        std::cout << "The modbus registers are mapped to shared memory objects:" << std::endl;
+        std::cout << "    type | name                      | master-access   | shm name" << std::endl;
+        std::cout << "    -----|---------------------------|-----------------|----------------" << std::endl;
+        std::cout << "    DO   | Discrete Output Coils     | read-write      | <name-prefix>DO" << std::endl;
+        std::cout << "    DI   | Discrete Input Coils      | read-only       | <name-prefix>DI" << std::endl;
+        std::cout << "    AO   | Discrete Output Registers | read-write      | <name-prefix>AO" << std::endl;
+        std::cout << "    AI   | Discrete Input Registers  | read-only       | <name-prefix>AI" << std::endl;
+        std::cout << std::endl;
         std::cout << "This application uses the following libraries:" << std::endl;
         std::cout << "  - cxxopts by jarro2783 (https://github.com/jarro2783/cxxopts)" << std::endl;
         std::cout << "  - libmodbus by Stéphane Raimbault (https://github.com/stephane/libmodbus)" << std::endl;

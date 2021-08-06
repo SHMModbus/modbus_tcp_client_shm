@@ -25,6 +25,15 @@ Modbus_TCP_client_shm [OPTION...]
   -m, --monitor           output all incoming and outgoing packets to stdout
   -r, --reconnect         do not terminate if Master disconnects.
   -h, --help              print usage
+
+
+The modbus registers are mapped to shared memory objects:
+    type | name                      | master-access   | shm name
+    -----|---------------------------|-----------------|----------------
+    DO   | Discrete Output Coils     | read-write      | <name-prefix>DO
+    DI   | Discrete Input Coils      | read-only       | <name-prefix>DI
+    AO   | Discrete Output Registers | read-write      | <name-prefix>AO
+    AI   | Discrete Input Registers  | read-only       | <name-prefix>AI
 ```
 
 ## Libraries
