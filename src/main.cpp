@@ -55,16 +55,16 @@ int main(int argc, char **argv) {
                          ("n,name-prefix",
                           "shared memory name prefix",
                           cxxopts::value<std::string>()->default_value("modbus_"))
-                         ("do_registers",
+                         ("do-registers",
                           "number of digital output registers",
                           cxxopts::value<std::size_t>()->default_value("65536"))
-                         ("di_registers",
+                         ("di-registers",
                           "number of digital input registers",
                           cxxopts::value<std::size_t>()->default_value("65536"))
-                         ("ao_registers",
+                         ("ao-registers",
                           "number of analog output registers",
                           cxxopts::value<std::size_t>()->default_value("65536"))
-                         ("ai_registers",
+                         ("ai-registers",
                           "number of analog input registers",
                           cxxopts::value<std::size_t>()->default_value("65536"))
                          ("m,monitor",
@@ -104,31 +104,31 @@ int main(int argc, char **argv) {
     }
 
     // check arguments
-    if (args["do_registers"].as<std::size_t>() > 0x10000) {
+    if (args["do-registers"].as<std::size_t>() > 0x10000) {
         std::cerr << "to many do_registers (maximum: 65536)." << std::endl;
         exit_usage();
     }
 
-    if (args["di_registers"].as<std::size_t>() > 0x10000) {
+    if (args["di-registers"].as<std::size_t>() > 0x10000) {
         std::cerr << "to many do_registers (maximum: 65536)." << std::endl;
         exit_usage();
     }
 
-    if (args["ao_registers"].as<std::size_t>() > 0x10000) {
+    if (args["ao-registers"].as<std::size_t>() > 0x10000) {
         std::cerr << "to many do_registers (maximum: 65536)." << std::endl;
         exit_usage();
     }
 
-    if (args["ai_registers"].as<std::size_t>() > 0x10000) {
+    if (args["ai-registers"].as<std::size_t>() > 0x10000) {
         std::cerr << "to many do_registers (maximum: 65536)." << std::endl;
         exit_usage();
     }
 
     // create shared memory object for modbus registers
-    Modbus::shm::Shm_Mapping mapping(args["do_registers"].as<std::size_t>(),
-                                     args["di_registers"].as<std::size_t>(),
-                                     args["ao_registers"].as<std::size_t>(),
-                                     args["ai_registers"].as<std::size_t>(),
+    Modbus::shm::Shm_Mapping mapping(args["do-registers"].as<std::size_t>(),
+                                     args["di-registers"].as<std::size_t>(),
+                                     args["ao-registers"].as<std::size_t>(),
+                                     args["ai-registers"].as<std::size_t>(),
                                      args["name-prefix"].as<std::string>());
 
     // create slave
