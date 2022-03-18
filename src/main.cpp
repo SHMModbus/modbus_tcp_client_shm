@@ -39,6 +39,9 @@ int main(int argc, char **argv) {
         exit(EX_USAGE);
     };
 
+    auto euid = geteuid();
+    if (!euid) std::cerr << "!!!! WARNING: You should not execute this program with root privileges !!!!" << std::endl;
+
     // establish signal handler
     if (signal(SIGINT, sig_term_handler) || signal(SIGTERM, sig_term_handler)) {
         perror("Failed to establish signal handler");
