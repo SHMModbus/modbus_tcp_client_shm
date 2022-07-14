@@ -8,9 +8,11 @@ git submodule init
 git submodule update
 mkdir build
 cd build
-cmake .. -DCMAKE_CXX_COMPILER=$(which clang++) -DCMAKE_BUILD_TYPE=Release -DCLANG_FORMAT=OFF
+cmake .. -DCMAKE_CXX_COMPILER=$(which clang++) -DCMAKE_BUILD_TYPE=Release -DCLANG_FORMAT=OFF -DCOMPILER_WARNINGS=OFF
 cmake --build .
 ```
+
+As an alternative to the ```git submodule``` commands, the ```--recursive``` option can be used with ```git clone```.
 
 ## Use
 ```
