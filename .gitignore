@@ -2,6 +2,9 @@
 build*
 docs/
 
+!docs/index.md
+!docs/_config.yml
+
 # editor files
 
 ## eclipse
