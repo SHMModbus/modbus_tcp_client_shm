@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.13.4 FATAL_ERROR)
 # ======================================================================================================================
 
 # project
-project(Modbus_TCP_client_shm LANGUAGES CXX VERSION 0.0.1)
+project(Modbus_TCP_client_shm LANGUAGES CXX VERSION 1.0.0)
 
 # settings
 set(Target "Modbus_TCP_client_shm")    # Executable name (without file extension!)
@@ -23,8 +23,6 @@ option(CLANG_TIDY "use clang-tidy" OFF)
 option(OPTIMIZE_FOR_ARCHITECTURE "enable optimizations for specified architecture" OFF)
 option(LTO_ENABLED "enable interprocedural and link time optimizations" ON)
 option(COMPILER_EXTENSIONS "enable compiler specific C++ extensions" OFF)
-
-
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -54,6 +52,10 @@ set_target_properties(${Target} PROPERTIES
         CXX_STANDARD_REQUIRED ON
         CXX_EXTENSIONS ${COMPILER_EXTENSIONS}
     )
+
+# project version and name
+target_compile_definitions(${Target} PUBLIC "PROJECT_VERSION=\"${CMAKE_PROJECT_VERSION}\"")
+target_compile_definitions(${Target} PUBLIC "PROJECT_NAME=\"${CMAKE_PROJECT_NAME}\"")
 
 # options that are valid for gcc and clang
 function(commonopts)

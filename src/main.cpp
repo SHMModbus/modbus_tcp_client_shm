@@ -81,7 +81,9 @@ int main(int argc, char **argv) {
                          ("r,reconnect",
                           "do not terminate if Master disconnects.")
                          ("h,help",
-                          "print usage");
+                          "print usage")
+                         ("version",
+                          "print version information");
     // clang-format on
 
     // parse arguments
@@ -132,6 +134,12 @@ int main(int argc, char **argv) {
         std::cout << "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM," << std::endl;
         std::cout << "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE" << std::endl;
         std::cout << "SOFTWARE." << std::endl;
+        exit(EX_OK);
+    }
+
+    // print usage
+    if (args.count("version")) {
+        std::cout << PROJECT_NAME << ' ' << PROJECT_VERSION << std::endl;
         exit(EX_OK);
     }
 

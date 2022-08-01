@@ -43,7 +43,7 @@ Shm_Mapping::Shm_Mapping(std::size_t        nb_bits,
     shm_data[AI].name = prefix + "AI";
 
     // create and map shm objects
-    for (std::size_t i = 0; i < reg_index_t::__SIZE__; ++i) {
+    for (std::size_t i = 0; i < reg_index_t::REG_COUNT; ++i) {
         auto &shm = shm_data[i];
 
         // create shm object
@@ -76,7 +76,7 @@ Shm_Mapping::Shm_Mapping(std::size_t        nb_bits,
 
 Shm_Mapping::~Shm_Mapping() {
     // unmap and delete shm objects
-    for (std::size_t i = 0; i < reg_index_t::__SIZE__; ++i) {
+    for (std::size_t i = 0; i < reg_index_t::REG_COUNT; ++i) {
         auto &shm = shm_data[i];
         if (shm.addr) {
             if (munmap(shm.addr, shm.size)) { perror(("Failed to unmap shared memory '" + shm.name + '\'').c_str()); }

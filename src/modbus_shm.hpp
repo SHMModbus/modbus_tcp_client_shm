@@ -14,7 +14,7 @@ namespace shm {
  */
 class Shm_Mapping {
 private:
-    enum reg_index_t : std::size_t { DO, DI, AO, AI, __SIZE__ };
+    enum reg_index_t : std::size_t { DO, DI, AO, AI, REG_COUNT };
 
     //! data for a shared memory object
     struct shm_data_t {
@@ -28,7 +28,7 @@ private:
     modbus_mapping_t mapping {};
 
     //! info for all shared memory objects
-    std::array<shm_data_t, reg_index_t::__SIZE__> shm_data;
+    std::array<shm_data_t, reg_index_t::REG_COUNT> shm_data;
 
 public:
     /*! \brief creates a new modbus_mapping_t. Like modbus_mapping_new(), but creates shared memory objects to store its
