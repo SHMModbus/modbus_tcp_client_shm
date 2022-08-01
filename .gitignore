@@ -1,6 +1,6 @@
 # general
 build*
-docs/
+docs/*
 
 !docs/index.md
 !docs/_config.yml
