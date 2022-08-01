@@ -39,6 +39,15 @@ The modbus registers are mapped to shared memory objects:
     AI   | Discrete Input Registers  | read-only       | <name-prefix>AI
 ```
 
+### Use privileged ports
+The standard modbus port (502) can be used only by the root user under linux by default. 
+To circumvent this, you can create an entry in the iptables that redirects packets on the standard modbus port to a higher port.
+The following example redirects packets from port 502 (standard modbus port) to port 5020
+```
+iptables -A PREROUTING -t nat -p tcp --dport 502 -j REDIRECT --to-port 5020
+```
+The modbus client must be called with the option ```-p 5020``` 
+
 ## Libraries
 This application uses the following libraries:
 - cxxopts by jarro2783 (https://github.com/jarro2783/cxxopts)
