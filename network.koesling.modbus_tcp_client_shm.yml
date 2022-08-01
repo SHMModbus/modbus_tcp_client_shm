@@ -1,0 +1,26 @@
+id: network.koesling.modbus_tcp_client_shm
+runtime: org.freedesktop.Platform
+runtime-version: '21.08'
+sdk: org.freedesktop.Sdk
+command: Modbus_TCP_client_shm
+finish-args:
+  - --device=shm
+  - --share=network
+modules:
+  - name: Modbus_TCP_client_shm
+    buildsystem: simple
+    build-commands:
+    # build
+    - mkdir build
+    - cmake -B build . -DCMAKE_BUILD_TYPE=Release -DCLANG_FORMAT=OFF -DCOMPILER_WARNINGS=OFF
+    - cmake --build build
+
+    # install
+    - mkdir -p "${FLATPAK_DEST}/bin"
+    - cp build/Modbus_TCP_client_shm ${FLATPAK_DEST}/bin
+    - ls -lah ${FLATPAK_DEST}
+    sources:
+      - type: git
+        branch: release
+        url: https://github.com/NikolasK-source/modbus_tcp_client_shm.git
+
