@@ -9,7 +9,7 @@ namespace TCP {
 //! Modbus TCP slave
 class Slave {
 private:
-    modbus_t *        modbus;          //!< modbus object (see libmodbus library)
+    modbus_t         *modbus;          //!< modbus object (see libmodbus library)
     modbus_mapping_t *mapping;         //!< modbus data object (see libmodbus library)
     bool              delete_mapping;  //!< indicates whether the mapping object was created by this instance
     int               socket = -1;     //!< socket of the modbus connection
@@ -23,7 +23,7 @@ public:
      */
     explicit Slave(const std::string &ip      = "0.0.0.0",
                    short unsigned int port    = 502,
-                   modbus_mapping_t * mapping = nullptr);
+                   modbus_mapping_t  *mapping = nullptr);
 
     /*! \brief destroy the modbus slave
      *

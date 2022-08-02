@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "Modbus_TCP_Slave.hpp"
+#include "license.hpp"
 #include "modbus_shm.hpp"
 
 //! terminate flag
@@ -83,7 +84,9 @@ int main(int argc, char **argv) {
                          ("h,help",
                           "print usage")
                          ("version",
-                          "print version information");
+                          "print version information")
+                         ("license",
+                          "show licences");
     // clang-format on
 
     // parse arguments
@@ -111,35 +114,18 @@ int main(int argc, char **argv) {
         std::cout << "This application uses the following libraries:" << std::endl;
         std::cout << "  - cxxopts by jarro2783 (https://github.com/jarro2783/cxxopts)" << std::endl;
         std::cout << "  - libmodbus by Stéphane Raimbault (https://github.com/stephane/libmodbus)" << std::endl;
-        std::cout << std::endl;
-        std::cout << std::endl;
-        std::cout << "MIT License:" << std::endl;
-        std::cout << std::endl;
-        std::cout << "Copyright (c) 2021 Nikolas Koesling" << std::endl;
-        std::cout << std::endl;
-        std::cout << "Permission is hereby granted, free of charge, to any person obtaining a copy" << std::endl;
-        std::cout << "of this software and associated documentation files (the \"Software\"), to deal" << std::endl;
-        std::cout << "in the Software without restriction, including without limitation the rights" << std::endl;
-        std::cout << "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell" << std::endl;
-        std::cout << "copies of the Software, and to permit persons to whom the Software is" << std::endl;
-        std::cout << "furnished to do so, subject to the following conditions:" << std::endl;
-        std::cout << std::endl;
-        std::cout << "The above copyright notice and this permission notice shall be included in all" << std::endl;
-        std::cout << "copies or substantial portions of the Software." << std::endl;
-        std::cout << std::endl;
-        std::cout << "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR" << std::endl;
-        std::cout << "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY," << std::endl;
-        std::cout << "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE" << std::endl;
-        std::cout << "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER" << std::endl;
-        std::cout << "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM," << std::endl;
-        std::cout << "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE" << std::endl;
-        std::cout << "SOFTWARE." << std::endl;
         exit(EX_OK);
     }
 
     // print usage
     if (args.count("version")) {
         std::cout << PROJECT_NAME << ' ' << PROJECT_VERSION << std::endl;
+        exit(EX_OK);
+    }
+
+    // print licenses
+    if (args.count("license")) {
+        print_licenses(std::cout);
         exit(EX_OK);
     }
 

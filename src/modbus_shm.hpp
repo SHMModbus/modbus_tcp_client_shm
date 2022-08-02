@@ -21,7 +21,7 @@ private:
         std::string name = std::string();  //!< name of the object
         int         fd   = -1;             //!< file descriptor
         std::size_t size;                  //!< size in bytes
-        void *      addr = nullptr;        //!< mapped address
+        void       *addr = nullptr;        //!< mapped address
     };
 
     //! modbus lib storage object
