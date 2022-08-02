@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2021-2022 Nikolas Koesling <nikolas@koesling.info>.
+ * This program is free software. You can redistribute it and/or modify it under the terms of the MIT License.
+ */
+
 #pragma once
 
 #include "modbus/modbus.h"
@@ -21,7 +26,7 @@ private:
         std::string name = std::string();  //!< name of the object
         int         fd   = -1;             //!< file descriptor
         std::size_t size;                  //!< size in bytes
-        void *      addr = nullptr;        //!< mapped address
+        void       *addr = nullptr;        //!< mapped address
     };
 
     //! modbus lib storage object

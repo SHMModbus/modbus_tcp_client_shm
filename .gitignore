@@ -1,6 +1,9 @@
 # general
 build*
-docs/
+docs/*
+
+!docs/index.md
+!docs/_config.yml
 
 # editor files
 
@@ -462,3 +465,5 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+!network.koesling.modbus_tcp_client_shm.yml
