@@ -86,5 +86,41 @@ bool Slave::handle_request() {
     return false;
 }
 
+struct timeout_t {
+    uint32_t sec;
+    uint32_t usec;
+};
+
+static inline timeout_t double_to_timeout_t(double timeout) {
+    timeout_t ret{};
+
+    ret.sec = static_cast<uint32_t>(timeout);
+
+    double fractional = timeout - static_cast<double>(ret.sec);
+    ret.usec = static_cast<uint32_t>(fractional * 1000.0 * 1000.0);
+
+    return ret;
+}
+
+void Slave::set_byte_timeout(double timeout) {
+    const auto T = double_to_timeout_t(timeout);
+    auto ret = modbus_set_byte_timeout(modbus, T.sec, T.usec);
+
+    if (ret != 0) {
+        const std::string error_msg = modbus_strerror(errno);
+        throw std::runtime_error("modbus_receive failed: " + error_msg + ' ' + std::to_string(errno));
+    }
+}
+
+void Slave::set_response_timeout(double timeout) {
+    const auto T = double_to_timeout_t(timeout);
+    auto ret = modbus_set_response_timeout(modbus, T.sec, T.usec);
+
+    if (ret != 0) {
+        const std::string error_msg = modbus_strerror(errno);
+        throw std::runtime_error("modbus_receive failed: " + error_msg + ' ' + std::to_string(errno));
+    }
+}
+
 }  // namespace TCP
 }  // namespace Modbus

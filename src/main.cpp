@@ -86,6 +86,19 @@ int main(int argc, char **argv) {
                           "output all incoming and outgoing packets to stdout")
                          ("r,reconnect",
                           "do not terminate if Master disconnects.")
+                         ("byte-timeout",
+                          "timeout interval in seconds between two consecutive bytes of the same message. "
+                           "In most cases it is sufficient to set teh response timeout. "
+                           "Fractional values are possible.",
+                          cxxopts::value<double>())
+                         ("t,response-timeout",
+                          "set the timeout interval in seconds used to wait for a response. "
+                          "When a byte timeout is set, if elapsed time for the first byte of response is longer than "
+                          "the given timeout, the a timeout is detected."
+                          "When byte timeout is disabled, the full confirmation response must be received before "
+                          "expiration of the response timeout."
+                          "Fractional values are possible.",
+                          cxxopts::value<double>())
                          ("h,help",
                           "print usage")
                          ("version",
@@ -173,6 +186,20 @@ int main(int argc, char **argv) {
         exit(EX_SOFTWARE);
     }
     socket = slave->get_socket();
+
+    // set timeouts if required
+    try {
+        if (args.count("response-timeout")) {
+            slave->set_response_timeout(args["response-timeout"].as<double>());
+        }
+
+        if (args.count("byte-timeout")) {
+            slave->set_response_timeout(args["byte-timeout"].as<double>());
+        }
+    } catch (const std::runtime_error &e) {
+        std::cerr << e.what() << std::endl;
+        exit(EX_SOFTWARE);
+    }
 
     // connection loop
     do {
