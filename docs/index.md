@@ -62,8 +62,7 @@ setcap 'cap_net_bind_service=+ep' /path/to/binary
 
 ## Using the Flatpak package
 The flatpak package can be installed via the .flatpak file.
-This can be downloaded from the GitHub project page:
-https://github.com/NikolasK-source/modbus_tcp_client_shm/releases
+This can be downloaded from the GitHub [projects release page](https://github.com/NikolasK-source/modbus_tcp_client_shm/releases):
 
 ```
 flatpak install --user modbus-tcp-client-shm.flatpak
@@ -74,8 +73,7 @@ The application is then executed as follows:
 flatpak run network.koesling.modbus-tcp-client-shm
 ```
 
-To enable calling with ```modbus-tcp-client-shm the``` following script can be used:
-https://gist.github.com/NikolasK-source/f0ef53fe4be7922901a1543e3cce8a97
+To enable calling with ```modbus-tcp-client-shm``` [this script](https://gist.github.com/NikolasK-source/f0ef53fe4be7922901a1543e3cce8a97) can be used.
 In order to be executable everywhere, the path in which the script is placed must be in the ```PATH``` environment variable.
 
 
@@ -106,26 +104,17 @@ The binary is located in the build directory.
 ## Links to related projects
 
 ### General Shared Memory Tools
-#### Shared Memory Dump
-https://nikolask-source.github.io/dump_shm/
-
-#### Shared Memory Write
-https://nikolask-source.github.io/write_shm/
-
-#### Shared Memory Random
-https://nikolask-source.github.io/shared_mem_random/
+- [Shared Memory Dump](https://nikolask-source.github.io/dump_shm/)
+- [Shared Memory Write](https://nikolask-source.github.io/write_shm/)
+- [Shared Memory Random](https://nikolask-source.github.io/shared_mem_random/)
 
 ### Modbus Clients
-- **RTU:** https://nikolask-source.github.io/modbus_rtu_client_shm/
-- **TCP:** https://nikolask-source.github.io/modbus_tcp_client_shm/
+- [RTU](https://nikolask-source.github.io/modbus_rtu_client_shm/)
+- [TCP](https://nikolask-source.github.io/modbus_tcp_client_shm/)
 
 ### Modbus Shared Memory Tools
-
-#### STDIN to Modbus 
-https://nikolask-source.github.io/stdin_to_modbus_shm/
-
-#### Float converter
-https://nikolask-source.github.io/modbus_conv_float/
+- [STDIN to Modbus](https://nikolask-source.github.io/stdin_to_modbus_shm/)
+- [Float converter](https://nikolask-source.github.io/modbus_conv_float/)
 
 
 ## License
