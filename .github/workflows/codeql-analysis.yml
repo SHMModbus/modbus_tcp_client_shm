@@ -68,8 +68,8 @@ jobs:
        echo "Run, Build Application using cmake"
        git submodule init
        git submodule update
-       cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCLANG_FORMAT=OFF -DCOMPILER_WARNINGS=OFF
-       cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+       cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release -DCLANG_FORMAT=OFF -DCOMPILER_WARNINGS=OFF
+       cmake --build ${{github.workspace}}/build --config Release
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v2
