@@ -56,7 +56,7 @@ Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t *mappi
         throw std::system_error(errno, std::generic_category(), "Failed to set socket option SO_KEEPALIVE");
     }
 
-    // this block makes this source file linux only :(
+#ifdef OS_LINUX
     if (tcp_timeout) {
         // set user timeout (~= timeout for tcp connection)
         unsigned user_timeout = static_cast<unsigned>(tcp_timeout) * 1000;
@@ -86,6 +86,9 @@ Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t *mappi
             throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPCNT");
         }
     }
+#else
+    static_cast<void>(tcp_timeout);
+#endif
 }
 
 Slave::~Slave() {

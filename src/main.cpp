@@ -94,14 +94,16 @@ int main(int argc, char **argv) {
                          ("response-timeout",
                           "set the timeout interval in seconds used to wait for a response. "
                           "When a byte timeout is set, if elapsed time for the first byte of response is longer than "
-                          "the given timeout, the a timeout is detected."
+                          "the given timeout, a timeout is detected."
                           "When byte timeout is disabled, the full confirmation response must be received before "
                           "expiration of the response timeout."
                           "Fractional values are possible.",
                           cxxopts::value<double>())
+#ifdef OS_LINUX
                          ("t,tcp-timeout",
                           "tcp timeout in seconds. Set to 0 to use the system defaults (not recommended).",
                           cxxopts::value<std::size_t>()->default_value("5"))
+#endif
                          ("h,help",
                           "print usage")
                          ("version",
@@ -140,7 +142,11 @@ int main(int argc, char **argv) {
 
     // print usage
     if (args.count("version")) {
-        std::cout << PROJECT_NAME << ' ' << PROJECT_VERSION << std::endl;
+        std::cout << PROJECT_NAME << ' ' << PROJECT_VERSION
+#ifndef OS_LINUX
+                  << "-nonlinux"
+#endif
+                  << std::endl;
         exit(EX_OK);
     }
 
@@ -184,7 +190,11 @@ int main(int argc, char **argv) {
         slave = std::make_unique<Modbus::TCP::Slave>(args["ip"].as<std::string>(),
                                                      args["port"].as<uint16_t>(),
                                                      mapping.get_mapping(),
+#ifdef OS_LINUX
                                                      args["tcp-timeout"].as<std::size_t>());
+#else
+                                                     0);
+#endif
         slave->set_debug(args.count("monitor"));
     } catch (const std::runtime_error &e) {
         std::cerr << e.what() << std::endl;
@@ -196,7 +206,7 @@ int main(int argc, char **argv) {
     try {
         if (args.count("response-timeout")) { slave->set_response_timeout(args["response-timeout"].as<double>()); }
 
-        if (args.count("byte-timeout")) { slave->set_response_timeout(args["byte-timeout"].as<double>()); }
+        if (args.count("byte-timeout")) { slave->set_byte_timeout(args["byte-timeout"].as<double>()); }
     } catch (const std::runtime_error &e) {
         std::cerr << e.what() << std::endl;
         exit(EX_SOFTWARE);
