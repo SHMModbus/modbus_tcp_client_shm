@@ -212,10 +212,6 @@ int main(int argc, char **argv) {
         exit(EX_SOFTWARE);
     }
 
-    // print timeouts
-    std::cerr << "    Byte timeout: " << slave->get_byte_timeout() << "s" << std::endl;
-    std::cerr << "Response timeout: " << slave->get_response_timeout() << "s" << std::endl;
-
     // connection loop
     do {
         // connect client
