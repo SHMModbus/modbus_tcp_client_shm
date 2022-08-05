@@ -75,7 +75,11 @@ bool Slave::handle_request() {
 
     if (rc > 0) {
         // handle request
-        modbus_reply(modbus, query, rc, mapping);
+        int ret = modbus_reply(modbus, query, rc, mapping);
+        if (ret == -1) {
+            const std::string error_msg = modbus_strerror(errno);
+            throw std::runtime_error("modbus_reply failed: " + error_msg + ' ' + std::to_string(errno));
+        }
     } else if (rc == -1) {
         if (errno == ECONNRESET) return true;
 
