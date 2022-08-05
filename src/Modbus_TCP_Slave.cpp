@@ -5,7 +5,11 @@
 
 #include "Modbus_TCP_Slave.hpp"
 
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <stdexcept>
+#include <sys/socket.h>
+#include <system_error>
 #include <unistd.h>
 
 namespace Modbus {
@@ -41,6 +45,19 @@ Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t *mappi
     if (socket == -1) {
         const std::string error_msg = modbus_strerror(errno);
         throw std::runtime_error("failed to create tcp socket: " + error_msg);
+    }
+
+    // set socket options
+    int keepalive = 1;
+    int tmp       = setsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(keepalive));
+    if (tmp != 0) {
+        throw std::system_error(errno, std::generic_category(), "Failed to set socket option SO_KEEPALIVE");
+    }
+
+    unsigned user_timeout = 5000;
+    tmp                   = setsockopt(socket, IPPROTO_TCP, TCP_USER_TIMEOUT, &keepalive, sizeof(user_timeout));
+    if (tmp != 0) {
+        throw std::system_error(errno, std::generic_category(), "Failed to set socket option SO_KEEPALIVE");
     }
 }
 
