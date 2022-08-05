@@ -26,9 +26,10 @@ public:
      * @param port port to listen  for incoming connections (default 502)
      * @param mapping modbus mapping object (nullptr: an mapping object with maximum size is generated)
      */
-    explicit Slave(const std::string &ip      = "0.0.0.0",
-                   short unsigned int port    = 502,
-                   modbus_mapping_t * mapping = nullptr);
+    explicit Slave(const std::string &ip          = "0.0.0.0",
+                   short unsigned int port        = 502,
+                   modbus_mapping_t * mapping     = nullptr,
+                   std::size_t        tcp_timeout = 5);
 
     /*! \brief destroy the modbus slave
      *

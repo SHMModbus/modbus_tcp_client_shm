@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
                            "In most cases it is sufficient to set teh response timeout. "
                            "Fractional values are possible.",
                           cxxopts::value<double>())
-                         ("t,response-timeout",
+                         ("response-timeout",
                           "set the timeout interval in seconds used to wait for a response. "
                           "When a byte timeout is set, if elapsed time for the first byte of response is longer than "
                           "the given timeout, the a timeout is detected."
@@ -99,6 +99,9 @@ int main(int argc, char **argv) {
                           "expiration of the response timeout."
                           "Fractional values are possible.",
                           cxxopts::value<double>())
+                         ("t,tcp-timeout",
+                          "tcp timeout in seconds",
+                          cxxopts::value<std::size_t>()->default_value("5"))
                          ("h,help",
                           "print usage")
                          ("version",
@@ -178,8 +181,10 @@ int main(int argc, char **argv) {
     // create slave
     std::unique_ptr<Modbus::TCP::Slave> slave;
     try {
-        slave = std::make_unique<Modbus::TCP::Slave>(
-                args["ip"].as<std::string>(), args["port"].as<uint16_t>(), mapping.get_mapping());
+        slave = std::make_unique<Modbus::TCP::Slave>(args["ip"].as<std::string>(),
+                                                     args["port"].as<uint16_t>(),
+                                                     mapping.get_mapping(),
+                                                     args["tcp-timeout"].as<std::size_t>());
         slave->set_debug(args.count("monitor"));
     } catch (const std::runtime_error &e) {
         std::cerr << e.what() << std::endl;

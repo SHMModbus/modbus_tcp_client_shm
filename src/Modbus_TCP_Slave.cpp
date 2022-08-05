@@ -17,7 +17,7 @@ namespace TCP {
 
 static constexpr int MAX_REGS = 0x10000;
 
-Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t *mapping) {
+Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t *mapping, std::size_t tcp_timeout) {
     // create modbus object
     modbus = modbus_new_tcp(ip.c_str(), static_cast<int>(port));
     if (modbus == nullptr) {
@@ -54,10 +54,30 @@ Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t *mappi
         throw std::system_error(errno, std::generic_category(), "Failed to set socket option SO_KEEPALIVE");
     }
 
-    unsigned user_timeout = 5000;
-    tmp                   = setsockopt(socket, IPPROTO_TCP, TCP_USER_TIMEOUT, &keepalive, sizeof(user_timeout));
-    if (tmp != 0) {
-        throw std::system_error(errno, std::generic_category(), "Failed to set socket option SO_KEEPALIVE");
+    if (tcp_timeout) {
+        unsigned user_timeout = static_cast<unsigned>(tcp_timeout) * 1000;
+        tmp                   = setsockopt(socket, IPPROTO_TCP, TCP_USER_TIMEOUT, &user_timeout, sizeof(keepalive));
+        if (tmp != 0) {
+            throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_USER_TIMEOUT");
+        }
+
+        unsigned keepidle = 1;
+        tmp               = setsockopt(socket, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, sizeof(keepidle));
+        if (tmp != 0) {
+            throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPIDLE");
+        }
+
+        unsigned keepintvl = 1;
+        tmp                = setsockopt(socket, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl));
+        if (tmp != 0) {
+            throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPINTVL");
+        }
+
+        unsigned keepcnt = static_cast<unsigned>(tcp_timeout);
+        tmp              = setsockopt(socket, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt));
+        if (tmp != 0) {
+            throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPCNT");
+        }
     }
 }
 
