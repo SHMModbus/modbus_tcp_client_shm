@@ -189,17 +189,17 @@ int main(int argc, char **argv) {
 
     // set timeouts if required
     try {
-        if (args.count("response-timeout")) {
-            slave->set_response_timeout(args["response-timeout"].as<double>());
-        }
+        if (args.count("response-timeout")) { slave->set_response_timeout(args["response-timeout"].as<double>()); }
 
-        if (args.count("byte-timeout")) {
-            slave->set_response_timeout(args["byte-timeout"].as<double>());
-        }
+        if (args.count("byte-timeout")) { slave->set_response_timeout(args["byte-timeout"].as<double>()); }
     } catch (const std::runtime_error &e) {
         std::cerr << e.what() << std::endl;
         exit(EX_SOFTWARE);
     }
+
+    // print timeouts
+    std::cerr << "    Byte timeout: " << slave->get_byte_timeout() << "s" << std::endl;
+    std::cerr << "Response timeout: " << slave->get_response_timeout() << "s" << std::endl;
 
     // connection loop
     do {
