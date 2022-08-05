@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
                           "Fractional values are possible.",
                           cxxopts::value<double>())
                          ("t,tcp-timeout",
-                          "tcp timeout in seconds",
+                          "tcp timeout in seconds. Set to 0 to use the system defaults (not recommended).",
                           cxxopts::value<std::size_t>()->default_value("5"))
                          ("h,help",
                           "print usage")

@@ -5,6 +5,7 @@
 
 #include "Modbus_TCP_Slave.hpp"
 
+#include <algorithm>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <stdexcept>
@@ -48,32 +49,38 @@ Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t *mappi
     }
 
     // set socket options
+    // enable socket keepalive (--> fail if connection partner is not reachable)
     int keepalive = 1;
     int tmp       = setsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(keepalive));
     if (tmp != 0) {
         throw std::system_error(errno, std::generic_category(), "Failed to set socket option SO_KEEPALIVE");
     }
 
+    // this block makes this source file linux only :(
     if (tcp_timeout) {
+        // set user timeout (~= timeout for tcp connection)
         unsigned user_timeout = static_cast<unsigned>(tcp_timeout) * 1000;
         tmp                   = setsockopt(socket, IPPROTO_TCP, TCP_USER_TIMEOUT, &user_timeout, sizeof(keepalive));
         if (tmp != 0) {
             throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_USER_TIMEOUT");
         }
 
+        // start sending keepalive request after one second without request
         unsigned keepidle = 1;
         tmp               = setsockopt(socket, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, sizeof(keepidle));
         if (tmp != 0) {
             throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPIDLE");
         }
 
-        unsigned keepintvl = 1;
+        // send up to 5 keepalive requests during the timeout time, but not more than one per second
+        unsigned keepintvl = std::max(static_cast<unsigned>(tcp_timeout / 5), 1u);
         tmp                = setsockopt(socket, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl));
         if (tmp != 0) {
             throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPINTVL");
         }
 
-        unsigned keepcnt = static_cast<unsigned>(tcp_timeout);
+        // 5 keepalive requests if the timeout time is >= 5s; else send one request each second
+        unsigned keepcnt = std::min(static_cast<unsigned>(tcp_timeout), 5u);
         tmp              = setsockopt(socket, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt));
         if (tmp != 0) {
             throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPCNT");
