@@ -11,8 +11,8 @@ modules:
     buildsystem: simple
     build-commands:
     # init submodules
-    git submodule init
-    git submodule update
+    - git submodule init
+    - git submodule update
 
     # build
     - mkdir build
