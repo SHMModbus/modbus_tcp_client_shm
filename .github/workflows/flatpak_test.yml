@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [main]
+    branches: [ "main", "development" ]
   pull_request:
 name: Flatpak_test
 jobs:
@@ -16,5 +16,5 @@ jobs:
       name: "Build"
       with:
         bundle: test_modbus-tcp-client-shm.flatpak
-        manifest-path: network.koesling.modbus-tcp-client-shm.yml
+        manifest-path: network.koesling.test-modbus-tcp-client-shm.yml
         cache-key: flatpak-builder-${{ github.sha }}
