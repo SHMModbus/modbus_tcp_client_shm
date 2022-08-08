@@ -15,6 +15,9 @@
 #include "license.hpp"
 #include "modbus_shm.hpp"
 
+//! Maximum number of registers per type
+constexpr size_t MODBUS_MAX_REGS = 0x10000;
+
 //! terminate flag
 static volatile bool terminate = false;
 
@@ -94,7 +97,7 @@ int main(int argc, char **argv) {
                          ("response-timeout",
                           "set the timeout interval in seconds used to wait for a response. "
                           "When a byte timeout is set, if elapsed time for the first byte of response is longer than "
-                          "the given timeout, a timeout is detected."
+                          "the given timeout, a timeout is detected. "
                           "When byte timeout is disabled, the full confirmation response must be received before "
                           "expiration of the response timeout."
                           "Fractional values are possible.",
@@ -157,23 +160,23 @@ int main(int argc, char **argv) {
     }
 
     // check arguments
-    if (args["do-registers"].as<std::size_t>() > 0x10000) {
-        std::cerr << "to many do_registers (maximum: 65536)." << std::endl;
+    if (args["do-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
+        std::cerr << "to many do-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
         exit_usage();
     }
 
-    if (args["di-registers"].as<std::size_t>() > 0x10000) {
-        std::cerr << "to many do_registers (maximum: 65536)." << std::endl;
+    if (args["di-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
+        std::cerr << "to many di-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
         exit_usage();
     }
 
-    if (args["ao-registers"].as<std::size_t>() > 0x10000) {
-        std::cerr << "to many do_registers (maximum: 65536)." << std::endl;
+    if (args["ao-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
+        std::cerr << "to many ao-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
         exit_usage();
     }
 
-    if (args["ai-registers"].as<std::size_t>() > 0x10000) {
-        std::cerr << "to many do_registers (maximum: 65536)." << std::endl;
+    if (args["ai-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
+        std::cerr << "to many ai-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
         exit_usage();
     }
 
