@@ -30,11 +30,28 @@ This option should be used carefully, as it generates large amounts of output de
 
 The ```--reconnect``` option can be used to specify that the application is not terminated when the master disconnects, but waits for a new connection.
 
-The client creates four shared memories and names them ```modbus_DO```, ```modbus_DI```, ```modbus_AO``` and `````` by default.
-The prefix modbus_ can be changed via the argument ```--name-prefix```. The suffixes for the register type (DO, DI, AO, AI) cannot be changed and will always be appended to the prefix.
+The client creates four shared memories and names them ```modbus_DO```, ```modbus_DI```, ```modbus_AO``` and ```modbus_AI``` by default.
+The prefix modbus_ can be changed via the argument ```--name-prefix```.
+The suffixes for the register type (DO, DI, AO, AI) cannot be changed and will always be appended to the prefix.
 
 By default, the client starts with the maximum possible number of modbus registers (65536 per register type).
 The number of registers can be changed using the ```--xx-registers``` (replace xx with the register type) command line arguments.
+
+### Examples
+Start client and listen to all incoming connections on the modbus standard port:
+```
+modbus-tcp-client-shm
+```
+
+Start client and listen to all incoming connections on port 10000 and wait for a new connection if the connection is lost:
+```
+modbus-tcp-client-shm -p 10000 -r
+```
+
+Start client and listen to incoming connections on ip 127.0.0.1 on port 10000:
+```
+modbus-tcp-client-shm -p 10000 -i 127.0.0.1
+```
 
 ### Use privileged ports
 Ports below 1024 cannot be used by standard users.
