@@ -18,7 +18,8 @@ Shm_Mapping::Shm_Mapping(std::size_t        nb_bits,
                          std::size_t        nb_input_bits,
                          std::size_t        nb_registers,
                          std::size_t        nb_input_registers,
-                         const std::string &prefix) {
+                         const std::string &prefix,
+                         bool               force) {
     // check argument ranges
     if (nb_bits > 0x10000 || !nb_bits) throw std::invalid_argument("invalid number of digital output registers.");
     if (nb_input_bits > 0x10000 || !nb_input_bits)
@@ -50,8 +51,11 @@ Shm_Mapping::Shm_Mapping(std::size_t        nb_bits,
     for (std::size_t i = 0; i < reg_index_t::REG_COUNT; ++i) {
         auto &shm = shm_data[i];
 
+        int flags = O_RDWR | O_CREAT;
+        if (!force) flags |= O_EXCL;
+
         // create shm object
-        shm.fd = shm_open(shm.name.c_str(), O_RDWR | O_CREAT, 0660);
+        shm.fd = shm_open(shm.name.c_str(), flags, 0660);
         if (shm.fd < 0) {
             throw std::system_error(
                     errno, std::generic_category(), "Failed to create shared memory '" + shm.name + '\'');

@@ -107,6 +107,11 @@ int main(int argc, char **argv) {
                           "tcp timeout in seconds. Set to 0 to use the system defaults (not recommended).",
                           cxxopts::value<std::size_t>()->default_value("5"))
 #endif
+                         ("force",
+                          "Force the use of the shared memory even if it already exists. "
+                          "Do not use this option per default! "
+                          "It should only be used if the shared memory of an improperly terminated instance continues "
+                          "to exist as an orphan and is no longer used.")
                          ("h,help",
                           "print usage")
                          ("version",
@@ -181,18 +186,25 @@ int main(int argc, char **argv) {
     }
 
     // create shared memory object for modbus registers
-    Modbus::shm::Shm_Mapping mapping(args["do-registers"].as<std::size_t>(),
-                                     args["di-registers"].as<std::size_t>(),
-                                     args["ao-registers"].as<std::size_t>(),
-                                     args["ai-registers"].as<std::size_t>(),
-                                     args["name-prefix"].as<std::string>());
+    std::unique_ptr<Modbus::shm::Shm_Mapping> mapping;
+    try {
+        mapping = std::make_unique<Modbus::shm::Shm_Mapping>(args["do-registers"].as<std::size_t>(),
+                                                             args["di-registers"].as<std::size_t>(),
+                                                             args["ao-registers"].as<std::size_t>(),
+                                                             args["ai-registers"].as<std::size_t>(),
+                                                             args["name-prefix"].as<std::string>(),
+                                                             args.count("force") > 0);
+    } catch (const std::system_error &e) {
+        std::cerr << e.what() << std::endl;
+        exit(EX_OSERR);
+    }
 
     // create slave
     std::unique_ptr<Modbus::TCP::Slave> slave;
     try {
         slave = std::make_unique<Modbus::TCP::Slave>(args["ip"].as<std::string>(),
                                                      args["port"].as<uint16_t>(),
-                                                     mapping.get_mapping(),
+                                                     mapping->get_mapping(),
 #ifdef OS_LINUX
                                                      args["tcp-timeout"].as<std::size_t>());
 #else
