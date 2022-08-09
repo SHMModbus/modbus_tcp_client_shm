@@ -4,12 +4,28 @@
  */
 
 #include <csignal>
-#include <cxxopts.hpp>
 #include <filesystem>
 #include <iostream>
 #include <memory>
 #include <sysexits.h>
 #include <unistd.h>
+
+// cxxopts, but all warnings disabled
+#ifdef COMPILER_CLANG
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Weverything"
+#elif defined(COMPILER_GCC)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wall"
+#endif
+
+#include <cxxopts.hpp>
+
+#ifdef COMPILER_CLANG
+#    pragma clang diagnostic pop
+#elif defined(COMPILER_GCC)
+#    pragma GCC diagnostic pop
+#endif
 
 #include "Modbus_TCP_Slave.hpp"
 #include "license.hpp"
