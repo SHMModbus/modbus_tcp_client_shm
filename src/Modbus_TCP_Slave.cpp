@@ -6,8 +6,11 @@
 #include "Modbus_TCP_Slave.hpp"
 
 #include <algorithm>
+#include <arpa/inet.h>
+#include <cstring>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sstream>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <system_error>
@@ -107,12 +110,29 @@ void Slave::set_debug(bool debug) {
     }
 }
 
-void Slave::connect_client() {
+std::string Slave::connect_client() {
     int tmp = modbus_tcp_accept(modbus, &socket);
     if (tmp < 0) {
         const std::string error_msg = modbus_strerror(errno);
         throw std::runtime_error("modbus_tcp_accept failed: " + error_msg);
     }
+
+    struct sockaddr_in peer_addr;
+    socklen_t          len = sizeof(peer_addr);
+    tmp = getpeername(modbus_get_socket(modbus), reinterpret_cast<struct sockaddr *>(&peer_addr), &len);
+
+    if (tmp < 0) {
+        const std::string error_msg = modbus_strerror(errno);
+        throw std::runtime_error("getpeername failed: " + error_msg);
+    }
+
+    char buffer[INET_ADDRSTRLEN];
+    inet_ntop(peer_addr.sin_family, &peer_addr.sin_addr, buffer, sizeof(buffer));
+
+    std::ostringstream sstr;
+    sstr << buffer << ':' << htons(peer_addr.sin_port);
+
+    return sstr.str();
 }
 
 bool Slave::handle_request() {

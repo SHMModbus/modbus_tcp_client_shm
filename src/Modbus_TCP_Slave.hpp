@@ -44,8 +44,9 @@ public:
 
     /*! \brief wait for client to connect
      *
+     * @return ip of the connected client
      */
-    void connect_client();
+    std::string connect_client();
 
     /*! \brief wait for request from Master and generate reply
      *

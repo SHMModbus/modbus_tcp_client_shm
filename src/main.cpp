@@ -88,18 +88,18 @@ int main(int argc, char **argv) {
                          ("m,monitor",
                           "output all incoming and outgoing packets to stdout")
                          ("r,reconnect",
-                          "do not terminate if Master disconnects.")
+                          "do not terminate if the Modbus master disconnects.")
                          ("byte-timeout",
                           "timeout interval in seconds between two consecutive bytes of the same message. "
-                           "In most cases it is sufficient to set teh response timeout. "
+                           "In most cases it is sufficient to set the response timeout. "
                            "Fractional values are possible.",
                           cxxopts::value<double>())
                          ("response-timeout",
                           "set the timeout interval in seconds used to wait for a response. "
-                          "When a byte timeout is set, if elapsed time for the first byte of response is longer than "
-                          "the given timeout, a timeout is detected. "
+                          "When a byte timeout is set, if the elapsed time for the first byte of response is longer "
+                          "than the given timeout, a timeout is detected. "
                           "When byte timeout is disabled, the full confirmation response must be received before "
-                          "expiration of the response timeout."
+                          "expiration of the response timeout. "
                           "Fractional values are possible.",
                           cxxopts::value<double>())
 #ifdef OS_LINUX
@@ -231,8 +231,9 @@ int main(int argc, char **argv) {
     do {
         // connect client
         std::cerr << "Waiting for Master to establish a connection..." << std::endl;
+        std::string client;
         try {
-            slave->connect_client();
+            client = slave->connect_client();
         } catch (const std::runtime_error &e) {
             if (!terminate) {
                 std::cerr << e.what() << std::endl;
@@ -241,7 +242,7 @@ int main(int argc, char **argv) {
             break;
         }
 
-        std::cerr << "Master established connection." << std::endl;
+        std::cerr << "Master (" << client << ") established connection." << std::endl;
 
         // ========== MAIN LOOP ========== (handle requests)
         bool connection_closed = false;
