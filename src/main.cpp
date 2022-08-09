@@ -30,7 +30,6 @@ static int socket = -1;
 static void sig_term_handler(int) {
     if (socket != -1) close(socket);
     terminate = true;
-    alarm(1);  // force termination after 1s
 }
 
 /*! \brief main function
