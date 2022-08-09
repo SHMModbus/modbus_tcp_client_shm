@@ -1,0 +1,30 @@
+on:
+  push:
+    branches: [ "main", "development" ]
+  pull_request:
+name: Flatpak_test
+jobs:
+  flatpak:
+    name: "Flatpak"
+    runs-on: ubuntu-latest
+    container:
+      image: bilelmoussaoui/flatpak-github-actions:freedesktop-21.08
+      options: --privileged
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Git config
+      run: git config --global --add safe.directory /__w/modbus_tcp_client_shm/modbus_tcp_client_shm
+
+    - name: Init submodules
+      run: git submodule init
+      
+    - name: Update submodules
+      run: git submodule update
+
+    - uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v4
+      name: "Build"
+      with:
+        bundle: test_modbus-tcp-client-shm.flatpak
+        manifest-path: network.koesling.test-modbus-tcp-client-shm.yml
+        cache-key: flatpak-builder-${{ github.sha }}

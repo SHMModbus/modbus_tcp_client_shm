@@ -1,0 +1,19 @@
+on:
+  push:
+    branches: [release]
+name: Flatpak_release
+jobs:
+  flatpak:
+    name: "Flatpak"
+    runs-on: ubuntu-latest
+    container:
+      image: bilelmoussaoui/flatpak-github-actions:freedesktop-21.08
+      options: --privileged
+    steps:
+    - uses: actions/checkout@v2
+    - uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v4
+      name: "Build"
+      with:
+        bundle: modbus-tcp-client-shm.flatpak
+        manifest-path: network.koesling.modbus-tcp-client-shm.yml
+        cache-key: flatpak-builder-${{ github.sha }}

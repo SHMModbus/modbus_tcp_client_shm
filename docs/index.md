@@ -1,6 +1,7 @@
 # Shared Memory Modbus TCP Client
 
-This project is a simple command line based Modbus TCP client for POXIX compatible operating systems that stores the contents of its registers in shared memory.
+This project is a simple command line based Modbus TCP client for POSIX compatible operating systems that stores the contents of its registers in shared memory.
+
 
 ## Basic operating principle
 
@@ -29,6 +30,29 @@ This option should be used carefully, as it generates large amounts of output de
 
 The ```--reconnect``` option can be used to specify that the application is not terminated when the master disconnects, but waits for a new connection.
 
+The client creates four shared memories and names them ```modbus_DO```, ```modbus_DI```, ```modbus_AO``` and ```modbus_AI``` by default.
+The prefix modbus_ can be changed via the argument ```--name-prefix```.
+The suffixes for the register type (DO, DI, AO, AI) cannot be changed and will always be appended to the prefix.
+
+By default, the client starts with the maximum possible number of modbus registers (65536 per register type).
+The number of registers can be changed using the ```--xx-registers``` (replace xx with the register type) command line arguments.
+
+### Examples
+Start client and listen to all incoming connections on the modbus standard port:
+```
+modbus-tcp-client-shm
+```
+
+Start client and listen to all incoming connections on port 10000 and wait for a new connection if the connection is lost:
+```
+modbus-tcp-client-shm -p 10000 -r
+```
+
+Start client and listen to incoming connections on ip 127.0.0.1 on port 10000:
+```
+modbus-tcp-client-shm -p 10000 -i 127.0.0.1
+```
+
 ### Use privileged ports
 Ports below 1024 cannot be used by standard users.
 Therefore, the default modbus port (502) cannot be used without further action.
@@ -53,6 +77,22 @@ setcap 'cap_net_bind_service=+ep' /path/to/binary
 ```
 
 
+## Using the Flatpak package
+The flatpak package can be installed via the .flatpak file.
+This can be downloaded from the GitHub [projects release page](https://github.com/NikolasK-source/modbus_tcp_client_shm/releases):
+
+```
+flatpak install --user modbus-tcp-client-shm.flatpak
+```
+
+The application is then executed as follows:
+```
+flatpak run network.koesling.modbus-tcp-client-shm
+```
+
+To enable calling with ```modbus-tcp-client-shm``` [this script](https://gist.github.com/NikolasK-source/f0ef53fe4be7922901a1543e3cce8a97) can be used.
+In order to be executable everywhere, the path in which the script is placed must be in the ```PATH``` environment variable.
+
 
 ## Build from Source
 
@@ -76,3 +116,44 @@ cmake --build build
 ```
 
 The binary is located in the build directory.
+
+
+## Links to related projects
+
+### General Shared Memory Tools
+- [Shared Memory Dump](https://nikolask-source.github.io/dump_shm/)
+- [Shared Memory Write](https://nikolask-source.github.io/write_shm/)
+- [Shared Memory Random](https://nikolask-source.github.io/shared_mem_random/)
+
+### Modbus Clients
+- [RTU](https://nikolask-source.github.io/modbus_rtu_client_shm/)
+- [TCP](https://nikolask-source.github.io/modbus_tcp_client_shm/)
+
+### Modbus Shared Memory Tools
+- [STDIN to Modbus](https://nikolask-source.github.io/stdin_to_modbus_shm/)
+- [Float converter](https://nikolask-source.github.io/modbus_conv_float/)
+
+
+## License
+
+MIT License
+
+Copyright (c) 2021-2022 Nikolas Koesling
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

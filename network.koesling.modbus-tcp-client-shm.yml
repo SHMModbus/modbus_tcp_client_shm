@@ -1,4 +1,4 @@
-id: network.koesling.modbus_tcp_client_shm
+id: network.koesling.modbus-tcp-client-shm
 runtime: org.freedesktop.Platform
 runtime-version: '21.08'
 sdk: org.freedesktop.Sdk

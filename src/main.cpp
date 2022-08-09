@@ -4,16 +4,35 @@
  */
 
 #include <csignal>
-#include <cxxopts.hpp>
 #include <filesystem>
 #include <iostream>
 #include <memory>
 #include <sysexits.h>
 #include <unistd.h>
 
+// cxxopts, but all warnings disabled
+#ifdef COMPILER_CLANG
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Weverything"
+#elif defined(COMPILER_GCC)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wall"
+#endif
+
+#include <cxxopts.hpp>
+
+#ifdef COMPILER_CLANG
+#    pragma clang diagnostic pop
+#elif defined(COMPILER_GCC)
+#    pragma GCC diagnostic pop
+#endif
+
 #include "Modbus_TCP_Slave.hpp"
 #include "license.hpp"
 #include "modbus_shm.hpp"
+
+//! Maximum number of registers per type
+constexpr size_t MODBUS_MAX_REGS = 0x10000;
 
 //! terminate flag
 static volatile bool terminate = false;
@@ -27,7 +46,6 @@ static int socket = -1;
 static void sig_term_handler(int) {
     if (socket != -1) close(socket);
     terminate = true;
-    alarm(1);  // force termination after 1s
 }
 
 /*! \brief main function
@@ -42,7 +60,7 @@ int main(int argc, char **argv) {
 
     auto exit_usage = [&exe_name]() {
         std::cerr << "Use '" << exe_name << " --help' for more information." << std::endl;
-        exit(EX_USAGE);
+        return EX_USAGE;
     };
 
     auto euid = geteuid();
@@ -51,12 +69,12 @@ int main(int argc, char **argv) {
     // establish signal handler
     if (signal(SIGINT, sig_term_handler) || signal(SIGTERM, sig_term_handler)) {
         perror("Failed to establish signal handler");
-        exit(EX_OSERR);
+        return EX_OSERR;
     }
 
     if (signal(SIGALRM, [](int) { exit(EX_OK); })) {
         perror("Failed to establish signal handler");
-        exit(EX_OSERR);
+        return EX_OSERR;
     }
 
     // all command line arguments
@@ -85,7 +103,30 @@ int main(int argc, char **argv) {
                          ("m,monitor",
                           "output all incoming and outgoing packets to stdout")
                          ("r,reconnect",
-                          "do not terminate if Master disconnects.")
+                          "do not terminate if the Modbus master disconnects.")
+                         ("byte-timeout",
+                          "timeout interval in seconds between two consecutive bytes of the same message. "
+                           "In most cases it is sufficient to set the response timeout. "
+                           "Fractional values are possible.",
+                          cxxopts::value<double>())
+                         ("response-timeout",
+                          "set the timeout interval in seconds used to wait for a response. "
+                          "When a byte timeout is set, if the elapsed time for the first byte of response is longer "
+                          "than the given timeout, a timeout is detected. "
+                          "When byte timeout is disabled, the full confirmation response must be received before "
+                          "expiration of the response timeout. "
+                          "Fractional values are possible.",
+                          cxxopts::value<double>())
+#ifdef OS_LINUX
+                         ("t,tcp-timeout",
+                          "tcp timeout in seconds. Set to 0 to use the system defaults (not recommended).",
+                          cxxopts::value<std::size_t>()->default_value("5"))
+#endif
+                         ("force",
+                          "Force the use of the shared memory even if it already exists. "
+                          "Do not use this option per default! "
+                          "It should only be used if the shared memory of an improperly terminated instance continues "
+                          "to exist as an orphan and is no longer used.")
                          ("h,help",
                           "print usage")
                          ("version",
@@ -100,7 +141,7 @@ int main(int argc, char **argv) {
         args = options.parse(argc, argv);
     } catch (cxxopts::OptionParseException &e) {
         std::cerr << "Failed to parse arguments: " << e.what() << '.' << std::endl;
-        exit_usage();
+        return exit_usage();
     }
 
     // print usage
@@ -119,76 +160,104 @@ int main(int argc, char **argv) {
         std::cout << "This application uses the following libraries:" << std::endl;
         std::cout << "  - cxxopts by jarro2783 (https://github.com/jarro2783/cxxopts)" << std::endl;
         std::cout << "  - libmodbus by Stéphane Raimbault (https://github.com/stephane/libmodbus)" << std::endl;
-        exit(EX_OK);
+        return EX_OK;
     }
 
     // print usage
     if (args.count("version")) {
-        std::cout << PROJECT_NAME << ' ' << PROJECT_VERSION << std::endl;
-        exit(EX_OK);
+        std::cout << PROJECT_NAME << ' ' << PROJECT_VERSION
+#ifndef OS_LINUX
+                  << "-nonlinux"
+#endif
+                  << std::endl;
+        return EX_OK;
     }
 
     // print licenses
     if (args.count("license")) {
         print_licenses(std::cout);
-        exit(EX_OK);
+        return EX_OK;
     }
 
     // check arguments
-    if (args["do-registers"].as<std::size_t>() > 0x10000) {
-        std::cerr << "to many do_registers (maximum: 65536)." << std::endl;
-        exit_usage();
+    if (args["do-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
+        std::cerr << "to many do-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
+        return exit_usage();
     }
 
-    if (args["di-registers"].as<std::size_t>() > 0x10000) {
-        std::cerr << "to many do_registers (maximum: 65536)." << std::endl;
-        exit_usage();
+    if (args["di-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
+        std::cerr << "to many di-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
+        return exit_usage();
     }
 
-    if (args["ao-registers"].as<std::size_t>() > 0x10000) {
-        std::cerr << "to many do_registers (maximum: 65536)." << std::endl;
-        exit_usage();
+    if (args["ao-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
+        std::cerr << "to many ao-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
+        return exit_usage();
     }
 
-    if (args["ai-registers"].as<std::size_t>() > 0x10000) {
-        std::cerr << "to many do_registers (maximum: 65536)." << std::endl;
-        exit_usage();
+    if (args["ai-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
+        std::cerr << "to many ai-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
+        return exit_usage();
     }
 
     // create shared memory object for modbus registers
-    Modbus::shm::Shm_Mapping mapping(args["do-registers"].as<std::size_t>(),
-                                     args["di-registers"].as<std::size_t>(),
-                                     args["ao-registers"].as<std::size_t>(),
-                                     args["ai-registers"].as<std::size_t>(),
-                                     args["name-prefix"].as<std::string>());
+    std::unique_ptr<Modbus::shm::Shm_Mapping> mapping;
+    try {
+        mapping = std::make_unique<Modbus::shm::Shm_Mapping>(args["do-registers"].as<std::size_t>(),
+                                                             args["di-registers"].as<std::size_t>(),
+                                                             args["ao-registers"].as<std::size_t>(),
+                                                             args["ai-registers"].as<std::size_t>(),
+                                                             args["name-prefix"].as<std::string>(),
+                                                             args.count("force") > 0);
+    } catch (const std::system_error &e) {
+        std::cerr << e.what() << std::endl;
+        return EX_OSERR;
+    }
 
     // create slave
     std::unique_ptr<Modbus::TCP::Slave> slave;
     try {
-        slave = std::make_unique<Modbus::TCP::Slave>(
-                args["ip"].as<std::string>(), args["port"].as<uint16_t>(), mapping.get_mapping());
+        slave = std::make_unique<Modbus::TCP::Slave>(args["ip"].as<std::string>(),
+                                                     args["port"].as<uint16_t>(),
+                                                     mapping->get_mapping(),
+#ifdef OS_LINUX
+                                                     args["tcp-timeout"].as<std::size_t>());
+#else
+                                                     0);
+#endif
         slave->set_debug(args.count("monitor"));
     } catch (const std::runtime_error &e) {
         std::cerr << e.what() << std::endl;
-        exit(EX_SOFTWARE);
+        return EX_SOFTWARE;
     }
     socket = slave->get_socket();
+
+    // set timeouts if required
+    try {
+        if (args.count("response-timeout")) { slave->set_response_timeout(args["response-timeout"].as<double>()); }
+
+        if (args.count("byte-timeout")) { slave->set_byte_timeout(args["byte-timeout"].as<double>()); }
+    } catch (const std::runtime_error &e) {
+        std::cerr << e.what() << std::endl;
+        return EX_SOFTWARE;
+    }
 
     // connection loop
     do {
         // connect client
         std::cerr << "Waiting for Master to establish a connection..." << std::endl;
+        std::string client;
         try {
-            slave->connect_client();
+            client = slave->connect_client();
         } catch (const std::runtime_error &e) {
             if (!terminate) {
                 std::cerr << e.what() << std::endl;
-                exit(EX_SOFTWARE);
+                return EX_SOFTWARE;
             }
             break;
         }
 
-        std::cerr << "Master established connection." << std::endl;
+        std::cerr << "Master (" << client << ") established connection." << std::endl;
 
         // ========== MAIN LOOP ========== (handle requests)
         bool connection_closed = false;
