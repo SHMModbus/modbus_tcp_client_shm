@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
 
     auto exit_usage = [&exe_name]() {
         std::cerr << "Use '" << exe_name << " --help' for more information." << std::endl;
-        exit(EX_USAGE);
+        return EX_USAGE;
     };
 
     auto euid = geteuid();
@@ -54,12 +54,12 @@ int main(int argc, char **argv) {
     // establish signal handler
     if (signal(SIGINT, sig_term_handler) || signal(SIGTERM, sig_term_handler)) {
         perror("Failed to establish signal handler");
-        exit(EX_OSERR);
+        return EX_OSERR;
     }
 
     if (signal(SIGALRM, [](int) { exit(EX_OK); })) {
         perror("Failed to establish signal handler");
-        exit(EX_OSERR);
+        return EX_OSERR;
     }
 
     // all command line arguments
@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
         args = options.parse(argc, argv);
     } catch (cxxopts::OptionParseException &e) {
         std::cerr << "Failed to parse arguments: " << e.what() << '.' << std::endl;
-        exit_usage();
+        return exit_usage();
     }
 
     // print usage
@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
         std::cout << "This application uses the following libraries:" << std::endl;
         std::cout << "  - cxxopts by jarro2783 (https://github.com/jarro2783/cxxopts)" << std::endl;
         std::cout << "  - libmodbus by Stéphane Raimbault (https://github.com/stephane/libmodbus)" << std::endl;
-        exit(EX_OK);
+        return EX_OK;
     }
 
     // print usage
@@ -155,34 +155,34 @@ int main(int argc, char **argv) {
                   << "-nonlinux"
 #endif
                   << std::endl;
-        exit(EX_OK);
+        return EX_OK;
     }
 
     // print licenses
     if (args.count("license")) {
         print_licenses(std::cout);
-        exit(EX_OK);
+        return EX_OK;
     }
 
     // check arguments
     if (args["do-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
         std::cerr << "to many do-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
-        exit_usage();
+        return exit_usage();
     }
 
     if (args["di-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
         std::cerr << "to many di-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
-        exit_usage();
+        return exit_usage();
     }
 
     if (args["ao-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
         std::cerr << "to many ao-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
-        exit_usage();
+        return exit_usage();
     }
 
     if (args["ai-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
         std::cerr << "to many ai-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
-        exit_usage();
+        return exit_usage();
     }
 
     // create shared memory object for modbus registers
@@ -196,7 +196,7 @@ int main(int argc, char **argv) {
                                                              args.count("force") > 0);
     } catch (const std::system_error &e) {
         std::cerr << e.what() << std::endl;
-        exit(EX_OSERR);
+        return EX_OSERR;
     }
 
     // create slave
@@ -213,7 +213,7 @@ int main(int argc, char **argv) {
         slave->set_debug(args.count("monitor"));
     } catch (const std::runtime_error &e) {
         std::cerr << e.what() << std::endl;
-        exit(EX_SOFTWARE);
+        return EX_SOFTWARE;
     }
     socket = slave->get_socket();
 
@@ -224,7 +224,7 @@ int main(int argc, char **argv) {
         if (args.count("byte-timeout")) { slave->set_byte_timeout(args["byte-timeout"].as<double>()); }
     } catch (const std::runtime_error &e) {
         std::cerr << e.what() << std::endl;
-        exit(EX_SOFTWARE);
+        return EX_SOFTWARE;
     }
 
     // connection loop
@@ -237,7 +237,7 @@ int main(int argc, char **argv) {
         } catch (const std::runtime_error &e) {
             if (!terminate) {
                 std::cerr << e.what() << std::endl;
-                exit(EX_SOFTWARE);
+                return EX_SOFTWARE;
             }
             break;
         }
