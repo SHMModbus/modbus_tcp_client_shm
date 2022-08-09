@@ -26,9 +26,10 @@ public:
      * @param port port to listen  for incoming connections (default 502)
      * @param mapping modbus mapping object (nullptr: an mapping object with maximum size is generated)
      */
-    explicit Slave(const std::string &ip      = "0.0.0.0",
-                   short unsigned int port    = 502,
-                   modbus_mapping_t  *mapping = nullptr);
+    explicit Slave(const std::string &ip          = "0.0.0.0",
+                   short unsigned int port        = 502,
+                   modbus_mapping_t  *mapping     = nullptr,
+                   std::size_t        tcp_timeout = 5);
 
     /*! \brief destroy the modbus slave
      *
@@ -43,14 +44,45 @@ public:
 
     /*! \brief wait for client to connect
      *
+     * @return ip of the connected client
      */
-    void connect_client();
+    std::string connect_client();
 
     /*! \brief wait for request from Master and generate reply
      *
      * @return true: connection closed
      */
     bool handle_request();
+
+    /*!
+     * \brief set byte timeout
+     *
+     * @details see https://libmodbus.org/docs/v3.1.7/modbus_set_byte_timeout.html
+     *
+     * @param timeout byte timeout in seconds
+     */
+    void set_byte_timeout(double timeout);
+
+    /*!
+     * \brief set byte timeout
+     *
+     * @details see https://libmodbus.org/docs/v3.1.7/modbus_set_response_timeout.html
+     *
+     * @param timeout byte response in seconds
+     */
+    void set_response_timeout(double timeout);
+
+    /**
+     * \brief get byte timeout in seconds
+     * @return byte timeout
+     */
+    double get_byte_timeout();
+
+    /**
+     * \brief get response timeout in seconds
+     * @return response timeout
+     */
+    double get_response_timeout();
 
     /*! \brief get the modbus socket
      *
