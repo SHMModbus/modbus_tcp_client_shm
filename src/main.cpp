@@ -165,7 +165,8 @@ int main(int argc, char **argv) {
 
     // print usage
     if (args.count("version")) {
-        std::cout << PROJECT_NAME << ' ' << PROJECT_VERSION
+        std::cout << PROJECT_NAME << ' ' << PROJECT_VERSION << " (compiled with " << COMPILER_INFO << " on "
+                  << SYSTEM_INFO << ')'
 #ifndef OS_LINUX
                   << "-nonlinux"
 #endif
