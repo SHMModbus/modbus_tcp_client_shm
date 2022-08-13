@@ -16,6 +16,8 @@
 #include <system_error>
 #include <unistd.h>
 
+#include <iostream>
+
 namespace Modbus {
 namespace TCP {
 
@@ -29,21 +31,74 @@ Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t *mappi
         throw std::runtime_error("failed to create modbus instance: " + error_msg);
     }
 
+    modbus_mapping_t *mb_mapping;
+
     if (mapping == nullptr) {
         // create new mapping with the maximum number of registers
-        this->mapping = modbus_mapping_new(MAX_REGS, MAX_REGS, MAX_REGS, MAX_REGS);
-        if (this->mapping == nullptr) {
+        mb_mapping = modbus_mapping_new(MAX_REGS, MAX_REGS, MAX_REGS, MAX_REGS);
+        if (mb_mapping == nullptr) {
             const std::string error_msg = modbus_strerror(errno);
             modbus_free(modbus);
             throw std::runtime_error("failed to allocate memory: " + error_msg);
         }
-        delete_mapping = true;
+        delete_mapping = mapping;
     } else {
         // use the provided mapping object
-        this->mapping  = mapping;
-        delete_mapping = false;
+        mb_mapping     = mapping;
+        delete_mapping = nullptr;
     }
 
+    // use mapping for all client ids
+    for (std::size_t i = 0; i < MAX_CLIENT_IDS; ++i) {
+        this->mappings[i] = mapping;
+    }
+
+    listen();
+
+#ifdef OS_LINUX
+    if (tcp_timeout) set_tcp_timeout(tcp_timeout);
+#else
+    static_cast<void>(tcp_timeout);
+#endif
+}
+
+Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t **mappings, std::size_t tcp_timeout) {
+    // create modbus object
+    modbus = modbus_new_tcp(ip.c_str(), static_cast<int>(port));
+    if (modbus == nullptr) {
+        const std::string error_msg = modbus_strerror(errno);
+        throw std::runtime_error("failed to create modbus instance: " + error_msg);
+    }
+
+    delete_mapping = nullptr;
+
+    for (std::size_t i = 0; i < MAX_CLIENT_IDS; ++i) {
+        if (mappings[i] == nullptr) {
+            if (delete_mapping == nullptr) {
+                delete_mapping = modbus_mapping_new(MAX_REGS, MAX_REGS, MAX_REGS, MAX_REGS);
+
+                if (delete_mapping == nullptr) {
+                    const std::string error_msg = modbus_strerror(errno);
+                    modbus_free(modbus);
+                    throw std::runtime_error("failed to allocate memory: " + error_msg);
+                }
+            }
+            this->mappings[i] = delete_mapping;
+        } else {
+            this->mappings[i] = mappings[i];
+        }
+    }
+
+    listen();
+
+#ifdef OS_LINUX
+    if (tcp_timeout) set_tcp_timeout(tcp_timeout);
+#else
+    static_cast<void>(tcp_timeout);
+#endif
+}
+
+void Slave::listen() {
     // create tcp socket
     socket = modbus_tcp_listen(modbus, 1);
     if (socket == -1) {
@@ -58,48 +113,47 @@ Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t *mappi
     if (tmp != 0) {
         throw std::system_error(errno, std::generic_category(), "Failed to set socket option SO_KEEPALIVE");
     }
+}
 
 #ifdef OS_LINUX
-    if (tcp_timeout) {
-        // set user timeout (~= timeout for tcp connection)
-        unsigned user_timeout = static_cast<unsigned>(tcp_timeout) * 1000;
-        tmp                   = setsockopt(socket, IPPROTO_TCP, TCP_USER_TIMEOUT, &user_timeout, sizeof(keepalive));
-        if (tmp != 0) {
-            throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_USER_TIMEOUT");
-        }
-
-        // start sending keepalive request after one second without request
-        unsigned keepidle = 1;
-        tmp               = setsockopt(socket, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, sizeof(keepidle));
-        if (tmp != 0) {
-            throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPIDLE");
-        }
-
-        // send up to 5 keepalive requests during the timeout time, but not more than one per second
-        unsigned keepintvl = std::max(static_cast<unsigned>(tcp_timeout / 5), 1u);
-        tmp                = setsockopt(socket, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl));
-        if (tmp != 0) {
-            throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPINTVL");
-        }
-
-        // 5 keepalive requests if the timeout time is >= 5s; else send one request each second
-        unsigned keepcnt = std::min(static_cast<unsigned>(tcp_timeout), 5u);
-        tmp              = setsockopt(socket, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt));
-        if (tmp != 0) {
-            throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPCNT");
-        }
+void Slave::set_tcp_timeout(std::size_t tcp_timeout) {
+    // set user timeout (~= timeout for tcp connection)
+    unsigned user_timeout = static_cast<unsigned>(tcp_timeout) * 1000;
+    int      tmp          = setsockopt(socket, IPPROTO_TCP, TCP_USER_TIMEOUT, &user_timeout, sizeof(tcp_timeout));
+    if (tmp != 0) {
+        throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_USER_TIMEOUT");
     }
-#else
-    static_cast<void>(tcp_timeout);
-#endif
+
+    // start sending keepalive request after one second without request
+    unsigned keepidle = 1;
+    tmp               = setsockopt(socket, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, sizeof(keepidle));
+    if (tmp != 0) {
+        throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPIDLE");
+    }
+
+    // send up to 5 keepalive requests during the timeout time, but not more than one per second
+    unsigned keepintvl = std::max(static_cast<unsigned>(tcp_timeout / 5), 1u);
+    tmp                = setsockopt(socket, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl));
+    if (tmp != 0) {
+        throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPINTVL");
+    }
+
+    // 5 keepalive requests if the timeout time is >= 5s; else send one request each second
+    unsigned keepcnt = std::min(static_cast<unsigned>(tcp_timeout), 5u);
+    tmp              = setsockopt(socket, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt));
+    if (tmp != 0) {
+        throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPCNT");
+    }
 }
+#endif
+
 
 Slave::~Slave() {
     if (modbus != nullptr) {
         modbus_close(modbus);
         modbus_free(modbus);
     }
-    if (mapping != nullptr && delete_mapping) modbus_mapping_free(mapping);
+    if (delete_mapping) modbus_mapping_free(delete_mapping);
     if (socket != -1) { close(socket); }
 }
 
@@ -141,6 +195,11 @@ bool Slave::handle_request() {
     int     rc = modbus_receive(modbus, query);
 
     if (rc > 0) {
+        const auto CLIENT_ID = query[6];
+
+        // get mapping
+        auto mapping = mappings[CLIENT_ID];
+
         // handle request
         int ret = modbus_reply(modbus, query, rc, mapping);
         if (ret == -1) {
