@@ -3,10 +3,10 @@
  * This program is free software. You can redistribute it and/or modify it under the terms of the MIT License.
  */
 
+#include <csignal>
 #include <filesystem>
 #include <iostream>
 #include <memory>
-#include <signal.h>
 #include <sysexits.h>
 #include <unistd.h>
 #include <unordered_set>
