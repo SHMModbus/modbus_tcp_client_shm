@@ -72,11 +72,6 @@ int main(int argc, char **argv) {
         return EX_OSERR;
     }
 
-    if (signal(SIGALRM, [](int) { exit(EX_OK); })) {
-        perror("Failed to establish signal handler");
-        return EX_OSERR;
-    }
-
     // all command line arguments
     // clang-format off
     options.add_options()("i,ip",
