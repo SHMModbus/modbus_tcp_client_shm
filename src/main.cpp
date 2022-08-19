@@ -154,7 +154,8 @@ int main(int argc, char **argv) {
                           "Use --separate-all all to generate separate shared memories for all possible client ids",
                           cxxopts::value<std::vector<std::uint8_t>>())
                          ("separate-all",
-                          "like --separate, but for all client ids")
+                          "like --separate, but for all client ids (creates 1028 shared memory files! "
+                          "check/set 'ulimit -n' before using this option.)")
                          ("h,help",
                           "print usage")
                          ("version",
