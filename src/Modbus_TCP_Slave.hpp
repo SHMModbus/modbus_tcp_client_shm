@@ -20,7 +20,7 @@ private:
     modbus_t *modbus;  //!< modbus object (see libmodbus library)
     modbus_mapping_t
             *mappings[MAX_CLIENT_IDS];  //!< modbus data objects (one per possible client id) (see libmodbus library)
-    modbus_mapping_t *delete_mapping;   //!< indicates whether the mapping object was created by this instance
+    modbus_mapping_t *delete_mapping;   //!< contains a pointer to a mapping that is to be deleted
     int               socket = -1;      //!< socket of the modbus connection
 
 public:
