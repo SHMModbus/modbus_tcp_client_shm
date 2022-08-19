@@ -118,6 +118,30 @@ cmake --build build
 The binary is located in the build directory.
 
 
+## Common Problems and Fixes
+
+### Failed to create Shared Memory
+It can happen that the client reports the following error on startup:
+```
+Failed to create shared memory ...: File exists
+```
+This can be caused by:
+ - Another modbus client is running that uses the shared memory with the given name.
+   If you want to run multiple instances simultaneously use the option ```--name-prefix``` to change the name of the shared memory.
+ - Any other application uses a shared memory with the given name (unlikely but possible)
+ - A previous instance of a modbus client crashed or was forcefully terminated and was not able to unlink the shared memory.
+   In this case, the option ```--force``` can be used to force the use of shared memory.
+   In the other cases this option should not be used.
+
+### Connection frequently times out
+
+If the connection frequently times out, it may be reasonable to increase the tcp timeout with the option ```--tcp-timeout```.
+It is per default set to 5 seconds.
+
+The two options x and y change the timeout behavior of the modbus connection. 
+These should only be changed by experienced users.
+See the [libmodbus documentation](https://libmodbus.org/docs/v3.1.7/) ([byte timeout](https://libmodbus.org/docs/v3.1.7/modbus_set_byte_timeout.html) and [response timeout](https://libmodbus.org/docs/v3.1.7/modbus_set_response_timeout.html)) for more details.
+
 ## Links to related projects
 
 ### General Shared Memory Tools
