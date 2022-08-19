@@ -138,7 +138,7 @@ This can be caused by:
 If the connection frequently times out, it may be reasonable to increase the tcp timeout with the option ```--tcp-timeout```.
 It is per default set to 5 seconds.
 
-The two options x and y change the timeout behavior of the modbus connection. 
+The two options ```--byte-timeout``` and ```--response-timeout``` change the timeout behavior of the modbus connection. 
 These should only be changed by experienced users.
 See the [libmodbus documentation](https://libmodbus.org/docs/v3.1.7/) ([byte timeout](https://libmodbus.org/docs/v3.1.7/modbus_set_byte_timeout.html) and [response timeout](https://libmodbus.org/docs/v3.1.7/modbus_set_response_timeout.html)) for more details.
 
