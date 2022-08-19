@@ -148,10 +148,10 @@ int main(int argc, char **argv) {
                           "It should only be used if the shared memory of an improperly terminated instance continues "
                           "to exist as an orphan and is no longer used.")
                          ("s,separate",
-                          "Use separate shared memory for requests with the specified client id. "
+                          "Use a separate shared memory for requests with the specified client id. "
                           "The the client id (as hex value) is appended to the shared memory prefix (e.g. modbus_fc_DO)"
                           ". You can specify multiple client ids by separating them with ','. "
-                          "Use --separate-all all to generate separate shared memories for all possible client ids",
+                          "Use --separate-all to generate separate shared memories for all possible client ids.",
                           cxxopts::value<std::vector<std::uint8_t>>())
                          ("separate-all",
                           "like --separate, but for all client ids (creates 1028 shared memory files! "
