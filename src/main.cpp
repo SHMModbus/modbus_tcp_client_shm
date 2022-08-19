@@ -3,12 +3,13 @@
  * This program is free software. You can redistribute it and/or modify it under the terms of the MIT License.
  */
 
+#include <csignal>
 #include <filesystem>
 #include <iostream>
 #include <memory>
-#include <signal.h>
 #include <sysexits.h>
 #include <unistd.h>
+#include <unordered_set>
 
 // cxxopts, but all warnings disabled
 #ifdef COMPILER_CLANG
@@ -146,6 +147,15 @@ int main(int argc, char **argv) {
                           "Do not use this option per default! "
                           "It should only be used if the shared memory of an improperly terminated instance continues "
                           "to exist as an orphan and is no longer used.")
+                         ("s,separate",
+                          "Use a separate shared memory for requests with the specified client id. "
+                          "The the client id (as hex value) is appended to the shared memory prefix (e.g. modbus_fc_DO)"
+                          ". You can specify multiple client ids by separating them with ','. "
+                          "Use --separate-all to generate separate shared memories for all possible client ids.",
+                          cxxopts::value<std::vector<std::uint8_t>>())
+                         ("separate-all",
+                          "like --separate, but for all client ids (creates 1028 shared memory files! "
+                          "check/set 'ulimit -n' before using this option.)")
                          ("h,help",
                           "print usage")
                          ("version",
@@ -220,26 +230,89 @@ int main(int argc, char **argv) {
         return exit_usage();
     }
 
-    // create shared memory object for modbus registers
-    std::unique_ptr<Modbus::shm::Shm_Mapping> mapping;
-    try {
-        mapping = std::make_unique<Modbus::shm::Shm_Mapping>(args["do-registers"].as<std::size_t>(),
-                                                             args["di-registers"].as<std::size_t>(),
-                                                             args["ao-registers"].as<std::size_t>(),
-                                                             args["ai-registers"].as<std::size_t>(),
-                                                             args["name-prefix"].as<std::string>(),
-                                                             args.count("force") > 0);
-    } catch (const std::system_error &e) {
-        std::cerr << e.what() << std::endl;
-        return EX_OSERR;
+    const auto SEPARATE     = args.count("separate");
+    const auto SEPARATE_ALL = args.count("separate-all");
+    if (SEPARATE && SEPARATE_ALL) {
+        std::cerr << "The options --separate and --separate-all cannot be used together." << std::endl;
+        return EX_USAGE;
     }
+
+    const auto FORCE_SHM = args.count("force") > 0;
+
+    // create shared memory object for modbus registers
+    std::unique_ptr<Modbus::shm::Shm_Mapping> fallback_mapping;
+    if (args.count("separate-all") == 0) {
+        try {
+            fallback_mapping = std::make_unique<Modbus::shm::Shm_Mapping>(args["do-registers"].as<std::size_t>(),
+                                                                          args["di-registers"].as<std::size_t>(),
+                                                                          args["ao-registers"].as<std::size_t>(),
+                                                                          args["ai-registers"].as<std::size_t>(),
+                                                                          args["name-prefix"].as<std::string>(),
+                                                                          FORCE_SHM);
+        } catch (const std::system_error &e) {
+            std::cerr << e.what() << std::endl;
+            return EX_OSERR;
+        }
+    }
+
+    std::array<modbus_mapping_t *, Modbus::TCP::MAX_CLIENT_IDS> mb_mappings;
+    std::vector<std::unique_ptr<Modbus::shm::Shm_Mapping>>      separate_mappings;
+
+    if (SEPARATE_ALL) {
+        for (std::size_t i = 0; i < Modbus::TCP::MAX_CLIENT_IDS; ++i) {
+            std::ostringstream sstr;
+            sstr << args["name-prefix"].as<std::string>() << std::setfill('0') << std::hex << std::setw(2) << i << '_';
+
+            try {
+                separate_mappings.emplace_back(
+                        std::make_unique<Modbus::shm::Shm_Mapping>(args["do-registers"].as<std::size_t>(),
+                                                                   args["di-registers"].as<std::size_t>(),
+                                                                   args["ao-registers"].as<std::size_t>(),
+                                                                   args["ai-registers"].as<std::size_t>(),
+                                                                   sstr.str(),
+                                                                   FORCE_SHM));
+                mb_mappings[i] = separate_mappings.back()->get_mapping();
+            } catch (const std::system_error &e) {
+                std::cerr << e.what() << std::endl;
+                return EX_OSERR;
+            }
+        }
+    } else {
+        mb_mappings.fill(fallback_mapping->get_mapping());
+    }
+
+    if (SEPARATE) {
+        auto                        id_list = args["separate"].as<std::vector<uint8_t>>();
+        std::unordered_set<uint8_t> id_set(id_list.begin(), id_list.end());
+
+        for (auto a : id_set) {
+            std::ostringstream sstr;
+            sstr << args["name-prefix"].as<std::string>() << std::setfill('0') << std::hex << std::setw(2)
+                 << static_cast<unsigned>(a) << '_';
+
+            try {
+                separate_mappings.emplace_back(
+                        std::make_unique<Modbus::shm::Shm_Mapping>(args["do-registers"].as<std::size_t>(),
+                                                                   args["di-registers"].as<std::size_t>(),
+                                                                   args["ao-registers"].as<std::size_t>(),
+                                                                   args["ai-registers"].as<std::size_t>(),
+                                                                   sstr.str(),
+                                                                   FORCE_SHM));
+                mb_mappings[a] = separate_mappings.back()->get_mapping();
+            } catch (const std::system_error &e) {
+                std::cerr << e.what() << std::endl;
+                return EX_OSERR;
+            }
+        }
+    }
+
 
     // create slave
     std::unique_ptr<Modbus::TCP::Slave> slave;
     try {
         slave = std::make_unique<Modbus::TCP::Slave>(args["ip"].as<std::string>(),
                                                      args["port"].as<uint16_t>(),
-                                                     mapping->get_mapping(),
+                                                     mb_mappings.data(),
 #ifdef OS_LINUX
                                                      args["tcp-timeout"].as<std::size_t>());
 #else

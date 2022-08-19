@@ -7,29 +7,48 @@
 
 #include <modbus/modbus.h>
 #include <string>
+#include <unordered_map>
 
 namespace Modbus {
 namespace TCP {
 
+constexpr std::size_t MAX_CLIENT_IDS = 256;
+
 //! Modbus TCP slave
 class Slave {
 private:
-    modbus_t         *modbus;          //!< modbus object (see libmodbus library)
-    modbus_mapping_t *mapping;         //!< modbus data object (see libmodbus library)
-    bool              delete_mapping;  //!< indicates whether the mapping object was created by this instance
-    int               socket = -1;     //!< socket of the modbus connection
+    modbus_t *modbus;  //!< modbus object (see libmodbus library)
+    modbus_mapping_t
+            *mappings[MAX_CLIENT_IDS];  //!< modbus data objects (one per possible client id) (see libmodbus library)
+    modbus_mapping_t *delete_mapping;   //!< contains a pointer to a mapping that is to be deleted
+    int               socket = -1;      //!< socket of the modbus connection
 
 public:
     /*! \brief create modbus slave (TCP server)
      *
      * @param ip ip to listen for incoming connections (default 0.0.0.0 (any))
      * @param port port to listen  for incoming connections (default 502)
-     * @param mapping modbus mapping object (nullptr: an mapping object with maximum size is generated)
+     * @param mapping modbus mapping object for all client ids
+     *                nullptr: an mapping object with maximum size is generated
+     * @param tcp_timeout tcp timeout (currently only available on linux systems)
      */
     explicit Slave(const std::string &ip          = "0.0.0.0",
                    short unsigned int port        = 502,
                    modbus_mapping_t  *mapping     = nullptr,
                    std::size_t        tcp_timeout = 5);
+
+    /**
+     * @brief create modbus slave (TCP server) with dedicated mappings per client id
+     *
+     * @param ip ip to listen for incoming connections
+     * @param port port to listen  for incoming connections
+     * @param mappings modbus mappings (one for each possible id)
+     * @param tcp_timeout tcp timeout (currently only available on linux systems)
+     */
+    Slave(const std::string &ip,
+          short unsigned int port,
+          modbus_mapping_t  *mappings[MAX_CLIENT_IDS],
+          std::size_t        tcp_timeout = 5);
 
     /*! \brief destroy the modbus slave
      *
@@ -89,6 +108,13 @@ public:
      * @return socket of the modbus connection
      */
     [[nodiscard]] int get_socket() const noexcept { return socket; }
+
+private:
+#ifdef OS_LINUX
+    void set_tcp_timeout(std::size_t tcp_timeout);
+#endif
+
+    void listen();
 };
 
 }  // namespace TCP
