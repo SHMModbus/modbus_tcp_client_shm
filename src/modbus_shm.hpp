@@ -5,9 +5,11 @@
 
 #pragma once
 
+#include "cxxshm.hpp"
 #include "modbus/modbus.h"
 #include <array>
 #include <cstddef>
+#include <memory>
 #include <string>
 
 namespace Modbus {
@@ -17,7 +19,7 @@ namespace shm {
  *
  * All required shm objects are created on construction and and deleted on destruction.
  */
-class Shm_Mapping {
+class Shm_Mapping final {
 private:
     enum reg_index_t : std::size_t { DO, DI, AO, AI, REG_COUNT };
 
@@ -33,7 +35,7 @@ private:
     modbus_mapping_t mapping {};
 
     //! info for all shared memory objects
-    std::array<shm_data_t, reg_index_t::REG_COUNT> shm_data;
+    std::array<std::unique_ptr<cxxshm::SharedMemory>, reg_index_t::REG_COUNT> shm_data;
 
 public:
     /*! \brief creates a new modbus_mapping_t. Like modbus_mapping_new(), but creates shared memory objects to store its
@@ -59,7 +61,7 @@ public:
                 const std::string &shm_name_prefix = "modbus_",
                 bool               force           = false);
 
-    ~Shm_Mapping();
+    ~Shm_Mapping() = default;
 
     /*! \brief get a pointer to the created modbus_mapping_t object
      *
