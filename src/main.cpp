@@ -28,7 +28,7 @@
 #    pragma GCC diagnostic pop
 #endif
 
-#include "Modbus_TCP_Slave.hpp"
+#include "Modbus_TCP_Client.hpp"
 #include "license.hpp"
 #include "modbus_shm.hpp"
 
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
                          ("m,monitor",
                           "output all incoming and outgoing packets to stdout")
                          ("r,reconnect",
-                          "do not terminate if the Modbus master disconnects.")
+                          "do not terminate if the Modbus Server disconnects.")
                          ("byte-timeout",
                           "timeout interval in seconds between two consecutive bytes of the same message. "
                            "In most cases it is sufficient to set the response timeout. "
@@ -179,12 +179,12 @@ int main(int argc, char **argv) {
         std::cout << options.help() << std::endl;
         std::cout << std::endl;
         std::cout << "The modbus registers are mapped to shared memory objects:" << std::endl;
-        std::cout << "    type | name                      | master-access   | shm name" << std::endl;
-        std::cout << "    -----|---------------------------|-----------------|----------------" << std::endl;
-        std::cout << "    DO   | Discrete Output Coils     | read-write      | <name-prefix>DO" << std::endl;
-        std::cout << "    DI   | Discrete Input Coils      | read-only       | <name-prefix>DI" << std::endl;
-        std::cout << "    AO   | Discrete Output Registers | read-write      | <name-prefix>AO" << std::endl;
-        std::cout << "    AI   | Discrete Input Registers  | read-only       | <name-prefix>AI" << std::endl;
+        std::cout << "    type | name                      | mb-server-access | shm name" << std::endl;
+        std::cout << "    -----|---------------------------|------------------|----------------" << std::endl;
+        std::cout << "    DO   | Discrete Output Coils     | read-write       | <name-prefix>DO" << std::endl;
+        std::cout << "    DI   | Discrete Input Coils      | read-only        | <name-prefix>DI" << std::endl;
+        std::cout << "    AO   | Discrete Output Registers | read-write       | <name-prefix>AO" << std::endl;
+        std::cout << "    AI   | Discrete Input Registers  | read-only        | <name-prefix>AI" << std::endl;
         std::cout << std::endl;
         std::cout << "This application uses the following libraries:" << std::endl;
         std::cout << "  - cxxopts by jarro2783 (https://github.com/jarro2783/cxxopts)" << std::endl;
@@ -308,10 +308,10 @@ int main(int argc, char **argv) {
     }
 
 
-    // create slave
-    std::unique_ptr<Modbus::TCP::Slave> slave;
+    // create modbus client
+    std::unique_ptr<Modbus::TCP::Client> client;
     try {
-        slave = std::make_unique<Modbus::TCP::Slave>(args["ip"].as<std::string>(),
+        client = std::make_unique<Modbus::TCP::Client>(args["ip"].as<std::string>(),
                                                      args["port"].as<uint16_t>(),
                                                      mb_mappings.data(),
 #ifdef OS_LINUX
@@ -319,18 +319,18 @@ int main(int argc, char **argv) {
 #else
                                                      0);
 #endif
-        slave->set_debug(args.count("monitor"));
+        client->set_debug(args.count("monitor"));
     } catch (const std::runtime_error &e) {
         std::cerr << e.what() << std::endl;
         return EX_SOFTWARE;
     }
-    socket = slave->get_socket();
+    socket = client->get_socket();
 
     // set timeouts if required
     try {
-        if (args.count("response-timeout")) { slave->set_response_timeout(args["response-timeout"].as<double>()); }
+        if (args.count("response-timeout")) { client->set_response_timeout(args["response-timeout"].as<double>()); }
 
-        if (args.count("byte-timeout")) { slave->set_byte_timeout(args["byte-timeout"].as<double>()); }
+        if (args.count("byte-timeout")) { client->set_byte_timeout(args["byte-timeout"].as<double>()); }
     } catch (const std::runtime_error &e) {
         std::cerr << e.what() << std::endl;
         return EX_SOFTWARE;
@@ -339,10 +339,10 @@ int main(int argc, char **argv) {
     // connection loop
     do {
         // connect client
-        std::cerr << "Waiting for Master to establish a connection..." << std::endl;
-        std::string client;
+        std::cerr << "Waiting for Modbus Server to establish a connection..." << std::endl;
+        std::string client_name;
         try {
-            client = slave->connect_client();
+            client_name = client->connect_client();
         } catch (const std::runtime_error &e) {
             if (!terminate) {
                 std::cerr << e.what() << std::endl;
@@ -351,13 +351,13 @@ int main(int argc, char **argv) {
             break;
         }
 
-        std::cerr << "Master (" << client << ") established connection." << std::endl;
+        std::cerr << "Modbus Server (" << client_name << ") established connection." << std::endl;
 
         // ========== MAIN LOOP ========== (handle requests)
         bool connection_closed = false;
         while (!terminate && !connection_closed) {
             try {
-                connection_closed = slave->handle_request();
+                connection_closed = client->handle_request();
             } catch (const std::runtime_error &e) {
                 // clang-tidy (LLVM 12.0.1) warning "Condition is always true" is not correct
                 if (!terminate) std::cerr << e.what() << std::endl;
@@ -365,7 +365,7 @@ int main(int argc, char **argv) {
             }
         }
 
-        if (connection_closed) std::cerr << "Master closed connection." << std::endl;
+        if (connection_closed) std::cerr << "Modbus Server closed connection." << std::endl;
     } while (args.count("reconnect"));
 
     std::cerr << "Terminating..." << std::endl;

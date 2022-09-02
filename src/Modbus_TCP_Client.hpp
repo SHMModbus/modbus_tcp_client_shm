@@ -14,8 +14,8 @@ namespace TCP {
 
 constexpr std::size_t MAX_CLIENT_IDS = 256;
 
-//! Modbus TCP slave
-class Slave {
+//! Modbus TCP client
+class Client {
 private:
     modbus_t *modbus;  //!< modbus object (see libmodbus library)
     modbus_mapping_t
@@ -24,7 +24,7 @@ private:
     int               socket = -1;      //!< socket of the modbus connection
 
 public:
-    /*! \brief create modbus slave (TCP server)
+    /*! \brief create modbus client (TCP server)
      *
      * @param ip ip to listen for incoming connections (default 0.0.0.0 (any))
      * @param port port to listen  for incoming connections (default 502)
@@ -32,28 +32,28 @@ public:
      *                nullptr: an mapping object with maximum size is generated
      * @param tcp_timeout tcp timeout (currently only available on linux systems)
      */
-    explicit Slave(const std::string &ip          = "0.0.0.0",
+    explicit Client(const std::string &ip          = "0.0.0.0",
                    short unsigned int port        = 502,
                    modbus_mapping_t  *mapping     = nullptr,
                    std::size_t        tcp_timeout = 5);
 
     /**
-     * @brief create modbus slave (TCP server) with dedicated mappings per client id
+     * @brief create modbus client (TCP server) with dedicated mappings per client id
      *
      * @param ip ip to listen for incoming connections
      * @param port port to listen  for incoming connections
      * @param mappings modbus mappings (one for each possible id)
      * @param tcp_timeout tcp timeout (currently only available on linux systems)
      */
-    Slave(const std::string &ip,
+    Client(const std::string &ip,
           short unsigned int port,
           modbus_mapping_t  *mappings[MAX_CLIENT_IDS],
           std::size_t        tcp_timeout = 5);
 
-    /*! \brief destroy the modbus slave
+    /*! \brief destroy the modbus client
      *
      */
-    ~Slave();
+    ~Client();
 
     /*! \brief enable/disable debugging output
      *
@@ -67,7 +67,7 @@ public:
      */
     std::string connect_client();
 
-    /*! \brief wait for request from Master and generate reply
+    /*! \brief wait for request from Modbus Server and generate reply
      *
      * @return true: connection closed
      */
