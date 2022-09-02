@@ -13,7 +13,7 @@ One for each register type:
 - Discrete Input Registers (AI)
 
 All registers are initialized with 0 at the beginning.
-The Modbus master reads and writes directly the values from these shared memories.
+The Modbus server reads and writes directly the values from these shared memories.
 
 The actual functionality of the client is realized by applications that read data from or write data to the shared memory.
 
@@ -21,14 +21,14 @@ The actual functionality of the client is realized by applications that read dat
 ## Use the Application
 The application can be started completely without command line arguments. 
 In this case the client listens for connections on all IPs on port 502 (the default modbus port).
-The application terminates if the master disconnects.
+The application terminates if the Modbus server disconnects.
 
 The arguments ```--port``` and ```--ip``` can be used to specify port and ip to listen to.
 
 By using the command line argument ```--monitor``` all incoming and outgoing packets are printed on stdout. 
-This option should be used carefully, as it generates large amounts of output depending on the masters polling cycle and the number of used registers.
+This option should be used carefully, as it generates large amounts of output depending on the Modbus servers polling cycle and the number of used registers.
 
-The ```--reconnect``` option can be used to specify that the application is not terminated when the master disconnects, but waits for a new connection.
+The ```--reconnect``` option can be used to specify that the application is not terminated when the Modbus Server disconnects, but waits for a new connection.
 
 The client creates four shared memories and names them ```modbus_DO```, ```modbus_DI```, ```modbus_AO``` and ```modbus_AI``` by default.
 The prefix modbus_ can be changed via the argument ```--name-prefix```.
@@ -76,8 +76,14 @@ This option cannot be used with flatpaks.
 setcap 'cap_net_bind_service=+ep' /path/to/binary
 ```
 
+## Install
 
-## Using the Flatpak package
+### Using the Modbus Collection Flapak Package: Shared Memory Modbus (recommended)
+[SHM-Modbus](https://nikolask-source.github.io/SHM_Modbus/) is a collection of the shared memory modbus tools.
+It is available as flatpak and published on flathub as ```network.koesling.shm-modbs```.
+
+
+### Using the Standalone Flatpak Package
 The flatpak package can be installed via the .flatpak file.
 This can be downloaded from the GitHub [projects release page](https://github.com/NikolasK-source/modbus_tcp_client_shm/releases):
 
@@ -94,7 +100,7 @@ To enable calling with ```modbus-tcp-client-shm``` [this script](https://gist.gi
 In order to be executable everywhere, the path in which the script is placed must be in the ```PATH``` environment variable.
 
 
-## Build from Source
+### Build from Source
 
 The following packages are required for building the application:
 - cmake

@@ -3,7 +3,7 @@
  * This program is free software. You can redistribute it and/or modify it under the terms of the MIT License.
  */
 
-#include "Modbus_TCP_Slave.hpp"
+#include "Modbus_TCP_Client.hpp"
 
 #include <algorithm>
 #include <arpa/inet.h>
@@ -23,7 +23,7 @@ namespace TCP {
 
 static constexpr int MAX_REGS = 0x10000;
 
-Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t *mapping, std::size_t tcp_timeout) {
+Client::Client(const std::string &ip, unsigned short port, modbus_mapping_t *mapping, std::size_t tcp_timeout) {
     // create modbus object
     modbus = modbus_new_tcp(ip.c_str(), static_cast<int>(port));
     if (modbus == nullptr) {
@@ -62,7 +62,7 @@ Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t *mappi
 #endif
 }
 
-Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t **mappings, std::size_t tcp_timeout) {
+Client::Client(const std::string &ip, unsigned short port, modbus_mapping_t **mappings, std::size_t tcp_timeout) {
     // create modbus object
     modbus = modbus_new_tcp(ip.c_str(), static_cast<int>(port));
     if (modbus == nullptr) {
@@ -98,7 +98,7 @@ Slave::Slave(const std::string &ip, unsigned short port, modbus_mapping_t **mapp
 #endif
 }
 
-void Slave::listen() {
+void Client::listen() {
     // create tcp socket
     socket = modbus_tcp_listen(modbus, 1);
     if (socket == -1) {
@@ -116,7 +116,7 @@ void Slave::listen() {
 }
 
 #ifdef OS_LINUX
-void Slave::set_tcp_timeout(std::size_t tcp_timeout) {
+void Client::set_tcp_timeout(std::size_t tcp_timeout) {
     // set user timeout (~= timeout for tcp connection)
     unsigned user_timeout = static_cast<unsigned>(tcp_timeout) * 1000;
     int      tmp          = setsockopt(socket, IPPROTO_TCP, TCP_USER_TIMEOUT, &user_timeout, sizeof(tcp_timeout));
@@ -148,7 +148,7 @@ void Slave::set_tcp_timeout(std::size_t tcp_timeout) {
 #endif
 
 
-Slave::~Slave() {
+Client::~Client() {
     if (modbus != nullptr) {
         modbus_close(modbus);
         modbus_free(modbus);
@@ -157,14 +157,14 @@ Slave::~Slave() {
     if (socket != -1) { close(socket); }
 }
 
-void Slave::set_debug(bool debug) {
+void Client::set_debug(bool debug) {
     if (modbus_set_debug(modbus, debug)) {
         const std::string error_msg = modbus_strerror(errno);
         throw std::runtime_error("failed to enable modbus debugging mode: " + error_msg);
     }
 }
 
-std::string Slave::connect_client() {
+std::string Client::connect_client() {
     int tmp = modbus_tcp_accept(modbus, &socket);
     if (tmp < 0) {
         const std::string error_msg = modbus_strerror(errno);
@@ -189,7 +189,7 @@ std::string Slave::connect_client() {
     return sstr.str();
 }
 
-bool Slave::handle_request() {
+bool Client::handle_request() {
     // receive modbus request
     uint8_t query[MODBUS_TCP_MAX_ADU_LENGTH];
     int     rc = modbus_receive(modbus, query);
@@ -232,7 +232,7 @@ static inline timeout_t double_to_timeout_t(double timeout) {
     return ret;
 }
 
-void Slave::set_byte_timeout(double timeout) {
+void Client::set_byte_timeout(double timeout) {
     const auto T   = double_to_timeout_t(timeout);
     auto       ret = modbus_set_byte_timeout(modbus, T.sec, T.usec);
 
@@ -242,7 +242,7 @@ void Slave::set_byte_timeout(double timeout) {
     }
 }
 
-void Slave::set_response_timeout(double timeout) {
+void Client::set_response_timeout(double timeout) {
     const auto T   = double_to_timeout_t(timeout);
     auto       ret = modbus_set_response_timeout(modbus, T.sec, T.usec);
 
@@ -252,7 +252,7 @@ void Slave::set_response_timeout(double timeout) {
     }
 }
 
-double Slave::get_byte_timeout() {
+double Client::get_byte_timeout() {
     timeout_t timeout {};
 
     auto ret = modbus_get_byte_timeout(modbus, &timeout.sec, &timeout.usec);
@@ -265,7 +265,7 @@ double Slave::get_byte_timeout() {
     return static_cast<double>(timeout.sec) + (static_cast<double>(timeout.usec) / (1000.0 * 1000.0));
 }
 
-double Slave::get_response_timeout() {
+double Client::get_response_timeout() {
     timeout_t timeout {};
 
     auto ret = modbus_get_response_timeout(modbus, &timeout.sec, &timeout.usec);
