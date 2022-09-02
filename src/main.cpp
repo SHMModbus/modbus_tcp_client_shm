@@ -312,12 +312,12 @@ int main(int argc, char **argv) {
     std::unique_ptr<Modbus::TCP::Client> client;
     try {
         client = std::make_unique<Modbus::TCP::Client>(args["ip"].as<std::string>(),
-                                                     args["port"].as<uint16_t>(),
-                                                     mb_mappings.data(),
+                                                       args["port"].as<uint16_t>(),
+                                                       mb_mappings.data(),
 #ifdef OS_LINUX
-                                                     args["tcp-timeout"].as<std::size_t>());
+                                                       args["tcp-timeout"].as<std::size_t>());
 #else
-                                                     0);
+                                                       0);
 #endif
         client->set_debug(args.count("monitor"));
     } catch (const std::runtime_error &e) {

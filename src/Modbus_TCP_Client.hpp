@@ -33,9 +33,9 @@ public:
      * @param tcp_timeout tcp timeout (currently only available on linux systems)
      */
     explicit Client(const std::string &ip          = "0.0.0.0",
-                   short unsigned int port        = 502,
-                   modbus_mapping_t  *mapping     = nullptr,
-                   std::size_t        tcp_timeout = 5);
+                    short unsigned int port        = 502,
+                    modbus_mapping_t  *mapping     = nullptr,
+                    std::size_t        tcp_timeout = 5);
 
     /**
      * @brief create modbus client (TCP server) with dedicated mappings per client id
@@ -46,9 +46,9 @@ public:
      * @param tcp_timeout tcp timeout (currently only available on linux systems)
      */
     Client(const std::string &ip,
-          short unsigned int port,
-          modbus_mapping_t  *mappings[MAX_CLIENT_IDS],
-          std::size_t        tcp_timeout = 5);
+           short unsigned int port,
+           modbus_mapping_t  *mappings[MAX_CLIENT_IDS],
+           std::size_t        tcp_timeout = 5);
 
     /*! \brief destroy the modbus client
      *
