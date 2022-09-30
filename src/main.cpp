@@ -99,12 +99,12 @@ int main(int argc, char **argv) {
 
     // all command line arguments
     // clang-format off
-    options.add_options()("i,ip",
-                          "ip to listen for incoming connections",
-                          cxxopts::value<std::string>()->default_value("0.0.0.0"))
-                         ("p,port",
-                          "port to listen for incoming connections",
-                          cxxopts::value<std::uint16_t>()->default_value("502"))
+    options.add_options()("i,host",
+                          "host to listen for incoming connections",
+                          cxxopts::value<std::string>()->default_value("any"))
+                         ("p,service",
+                          "service or port to listen for incoming connections",
+                          cxxopts::value<std::string>()->default_value("502"))
                          ("n,name-prefix",
                           "shared memory name prefix",
                           cxxopts::value<std::string>()->default_value("modbus_"))
@@ -311,8 +311,8 @@ int main(int argc, char **argv) {
     // create modbus client
     std::unique_ptr<Modbus::TCP::Client> client;
     try {
-        client = std::make_unique<Modbus::TCP::Client>(args["ip"].as<std::string>(),
-                                                       args["port"].as<uint16_t>(),
+        client = std::make_unique<Modbus::TCP::Client>(args["host"].as<std::string>(),
+                                                       args["service"].as<std::string>(),
                                                        mb_mappings.data(),
 #ifdef OS_LINUX
                                                        args["tcp-timeout"].as<std::size_t>());

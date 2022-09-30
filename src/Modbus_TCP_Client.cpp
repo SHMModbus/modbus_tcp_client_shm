@@ -23,9 +23,15 @@ namespace TCP {
 
 static constexpr int MAX_REGS = 0x10000;
 
-Client::Client(const std::string &ip, unsigned short port, modbus_mapping_t *mapping, std::size_t tcp_timeout) {
+Client::Client(const std::string &host,
+               const std::string &service,
+               modbus_mapping_t  *mapping,
+               std::size_t        tcp_timeout) {
+    const char *host_str = nullptr;
+    if (!(host.empty() || host == "any" || host == "::" || host == "0.0.0.0")) host_str = host.c_str();
+
     // create modbus object
-    modbus = modbus_new_tcp(ip.c_str(), static_cast<int>(port));
+    modbus = modbus_new_tcp_pi(host_str, service.c_str());
     if (modbus == nullptr) {
         const std::string error_msg = modbus_strerror(errno);
         throw std::runtime_error("failed to create modbus instance: " + error_msg);
@@ -62,9 +68,15 @@ Client::Client(const std::string &ip, unsigned short port, modbus_mapping_t *map
 #endif
 }
 
-Client::Client(const std::string &ip, unsigned short port, modbus_mapping_t **mappings, std::size_t tcp_timeout) {
+Client::Client(const std::string &host,
+               const std::string &service,
+               modbus_mapping_t **mappings,
+               std::size_t        tcp_timeout) {
+    const char *host_str = nullptr;
+    if (!(host.empty() || host == "any" || host == "::" || host == "0.0.0.0")) host_str = host.c_str();
+
     // create modbus object
-    modbus = modbus_new_tcp(ip.c_str(), static_cast<int>(port));
+    modbus = modbus_new_tcp_pi(host_str, service.c_str());
     if (modbus == nullptr) {
         const std::string error_msg = modbus_strerror(errno);
         throw std::runtime_error("failed to create modbus instance: " + error_msg);
@@ -171,8 +183,8 @@ std::string Client::connect_client() {
         throw std::runtime_error("modbus_tcp_accept failed: " + error_msg);
     }
 
-    struct sockaddr_in peer_addr;
-    socklen_t          len = sizeof(peer_addr);
+    struct sockaddr_storage peer_addr;
+    socklen_t               len = sizeof(peer_addr);
     tmp = getpeername(modbus_get_socket(modbus), reinterpret_cast<struct sockaddr *>(&peer_addr), &len);
 
     if (tmp < 0) {
@@ -180,11 +192,24 @@ std::string Client::connect_client() {
         throw std::runtime_error("getpeername failed: " + error_msg);
     }
 
-    char buffer[INET_ADDRSTRLEN];
-    inet_ntop(peer_addr.sin_family, &peer_addr.sin_addr, buffer, sizeof(buffer));
+    char     buffer[INET6_ADDRSTRLEN + 1];
+    uint16_t port;
+    if (peer_addr.ss_family == AF_INET) {
+        auto peer_in = reinterpret_cast<const struct sockaddr_in *>(&peer_addr);
+        inet_ntop(peer_addr.ss_family, &peer_in->sin_addr, buffer, sizeof(buffer));
+        port = htons(peer_in->sin_port);
+    }
+    if (peer_addr.ss_family == AF_INET6) {
+        auto peer_in6 = reinterpret_cast<const struct sockaddr_in6 *>(&peer_addr);
+        inet_ntop(peer_addr.ss_family, &peer_in6->sin6_addr, buffer, sizeof(buffer));
+        port = htons(peer_in6->sin6_port);
+    } else {
+        strcpy(buffer, "UNKNOWN");
+        port = 0;
+    }
 
     std::ostringstream sstr;
-    sstr << buffer << ':' << htons(peer_addr.sin_port);
+    sstr << buffer << ':' << port;
 
     return sstr.str();
 }
