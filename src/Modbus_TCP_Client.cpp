@@ -114,8 +114,12 @@ void Client::listen() {
     // create tcp socket
     socket = modbus_tcp_pi_listen(modbus, 1);
     if (socket == -1) {
-        const std::string error_msg = modbus_strerror(errno);
-        throw std::runtime_error("failed to create tcp socket: " + error_msg);
+        if (errno == ECONNREFUSED) {
+            throw std::runtime_error("failed to create tcp socket: unknown or invalid service");
+        } else {
+            const std::string error_msg = modbus_strerror(errno);
+            throw std::runtime_error("failed to create tcp socket: " + error_msg);
+        }
     }
 
     // set socket options
