@@ -61,6 +61,12 @@ public:
      */
     void set_debug(bool debug);
 
+    /** \brief get the address the tcp server is listening on
+     *
+     * @return server listening address
+     */
+    std::string get_listen_addr();
+
     /*! \brief wait for client to connect
      *
      * @return ip of the connected client

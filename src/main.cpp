@@ -336,6 +336,8 @@ int main(int argc, char **argv) {
         return EX_SOFTWARE;
     }
 
+    std::cerr << "Listening on " << client->get_listen_addr() << " for connections." << std::endl;
+
     // connection loop
     do {
         // connect client

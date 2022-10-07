@@ -163,7 +163,6 @@ void Client::set_tcp_timeout(std::size_t tcp_timeout) {
 }
 #endif
 
-
 Client::~Client() {
     if (modbus != nullptr) {
         modbus_close(modbus);
@@ -178,6 +177,47 @@ void Client::set_debug(bool debug) {
         const std::string error_msg = modbus_strerror(errno);
         throw std::runtime_error("failed to enable modbus debugging mode: " + error_msg);
     }
+}
+
+/**
+ * @brief convert socket address to string
+ * @param sa socket address
+ * @return sa as string
+ */
+static std::string sockaddr_to_str(const sockaddr_storage &sa) {
+    char buffer[INET6_ADDRSTRLEN + 1];
+    if (sa.ss_family == AF_INET) {
+        auto peer_in = reinterpret_cast<const struct sockaddr_in *>(&sa);
+        inet_ntop(sa.ss_family, &peer_in->sin_addr, buffer, sizeof(buffer));
+        std::ostringstream sstr;
+        return buffer;
+    } else if (sa.ss_family == AF_INET6) {
+        auto peer_in6 = reinterpret_cast<const struct sockaddr_in6 *>(&sa);
+        inet_ntop(sa.ss_family, &peer_in6->sin6_addr, buffer, sizeof(buffer));
+        std::ostringstream sstr;
+        sstr << '[' << buffer << ']';
+        return sstr.str();
+    } else {
+        return "UNKNOWN";
+    }
+}
+
+std::string Client::get_listen_addr() {
+    struct sockaddr_storage sock_addr;
+    socklen_t               len = sizeof(sock_addr);
+    int                     tmp = getsockname(socket, reinterpret_cast<struct sockaddr *>(&sock_addr), &len);
+
+    if (tmp < 0) {
+        const std::string error_msg = modbus_strerror(errno);
+        throw std::runtime_error("getsockname failed: " + error_msg);
+    }
+
+    std::ostringstream sstr;
+    sstr << sockaddr_to_str(sock_addr);
+    // the port entries have the same offset and size in sockaddr_in and sockaddr_in6
+    sstr << ':' << htons(reinterpret_cast<const struct sockaddr_in *>(&sock_addr)->sin_port);
+
+    return sstr.str();
 }
 
 std::string Client::connect_client() {
@@ -198,18 +238,9 @@ std::string Client::connect_client() {
 
     std::ostringstream sstr;
 
-    char buffer[INET6_ADDRSTRLEN + 1];
-    if (peer_addr.ss_family == AF_INET) {
-        auto peer_in = reinterpret_cast<const struct sockaddr_in *>(&peer_addr);
-        inet_ntop(peer_addr.ss_family, &peer_in->sin_addr, buffer, sizeof(buffer));
-        sstr << buffer << ':' << htons(peer_in->sin_port);
-    } else if (peer_addr.ss_family == AF_INET6) {
-        auto peer_in6 = reinterpret_cast<const struct sockaddr_in6 *>(&peer_addr);
-        inet_ntop(peer_addr.ss_family, &peer_in6->sin6_addr, buffer, sizeof(buffer));
-        sstr << buffer << ':' << htons(peer_in6->sin6_port);
-    } else {
-        sstr << "UNKNOWN" << ':' << peer_addr.ss_family;
-    }
+    sstr << sockaddr_to_str(peer_addr);
+    // the port entries have the same offset and size in sockaddr_in and sockaddr_in6
+    sstr << ':' << htons(reinterpret_cast<const struct sockaddr_in *>(&peer_addr)->sin_port);
 
     return sstr.str();
 }
