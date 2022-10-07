@@ -14,7 +14,7 @@ set(ARCHITECTURE "native")        # CPU architecture to optimize for (only relev
 # options
 option(BUILD_DOC "Build documentation" OFF)
 option(COMPILER_WARNINGS "Enable compiler warnings" ON)
-option(ENABLE_MULTITHREADING "Link the default multithreading library for the current target system" OFF)
+option(ENABLE_MULTITHREADING "Link the default multithreading library for the current target system" ON)
 option(MAKE_32_BIT_BINARY "Compile as 32 bit application. No effect on 32 bit Systems" OFF)
 option(OPENMP "enable openmp" OFF)
 option(OPTIMIZE_DEBUG "apply optimizations also in debug mode" ON)

@@ -12,6 +12,7 @@
 #include <netinet/tcp.h>
 #include <sstream>
 #include <stdexcept>
+#include <sys/poll.h>
 #include <sys/socket.h>
 #include <system_error>
 #include <unistd.h>
@@ -220,7 +221,22 @@ std::string Client::get_listen_addr() {
     return sstr.str();
 }
 
-std::string Client::connect_client() {
+std::shared_ptr<Connection> Client::connect_client() {
+    struct pollfd fd;
+    memset(&fd, 0, sizeof(fd));
+    fd.fd     = socket;
+    fd.events = POLL_IN;
+    do {
+        int tmp = poll(&fd, 1, -1);
+        if (tmp <= 0) {
+            if (errno == EINTR) continue;
+            throw std::system_error(errno, std::generic_category(), "Failed to poll server socket");
+        } else
+            break;
+    } while (true);
+
+    std::lock_guard<decltype(modbus_lock)> guard(modbus_lock);
+
     int tmp = modbus_tcp_pi_accept(modbus, &socket);
     if (tmp < 0) {
         const std::string error_msg = modbus_strerror(errno);
@@ -242,10 +258,12 @@ std::string Client::connect_client() {
     // the port entries have the same offset and size in sockaddr_in and sockaddr_in6
     sstr << ':' << htons(reinterpret_cast<const struct sockaddr_in *>(&peer_addr)->sin_port);
 
-    return sstr.str();
+    return std::make_shared<Connection>(sstr.str(), modbus_get_socket(modbus), modbus_lock, modbus, mappings);
 }
 
 bool Client::handle_request() {
+    std::lock_guard<decltype(modbus_lock)> guard(modbus_lock);
+
     // receive modbus request
     uint8_t query[MODBUS_TCP_MAX_ADU_LENGTH];
     int     rc = modbus_receive(modbus, query);

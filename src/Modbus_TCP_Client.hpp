@@ -5,9 +5,13 @@
 
 #pragma once
 
+#include <memory>
 #include <modbus/modbus.h>
+#include <mutex>
 #include <string>
 #include <unordered_map>
+
+#include "Modbus_TCP_connection.hpp"
 
 namespace Modbus {
 namespace TCP {
@@ -22,6 +26,7 @@ private:
             *mappings[MAX_CLIENT_IDS];  //!< modbus data objects (one per possible client id) (see libmodbus library)
     modbus_mapping_t *delete_mapping;   //!< contains a pointer to a mapping that is to be deleted
     int               socket = -1;      //!< socket of the modbus connection
+    std::mutex        modbus_lock;
 
 public:
     /*! \brief create modbus client (TCP server)
@@ -71,7 +76,7 @@ public:
      *
      * @return ip of the connected client
      */
-    std::string connect_client();
+    std::shared_ptr<Connection> connect_client();
 
     /*! \brief wait for request from Modbus Server and generate reply
      *
