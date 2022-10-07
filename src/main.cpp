@@ -3,13 +3,17 @@
  * This program is free software. You can redistribute it and/or modify it under the terms of the MIT License.
  */
 
+#include <atomic>
+#include <condition_variable>
 #include <csignal>
 #include <filesystem>
 #include <iostream>
 #include <memory>
 #include <sysexits.h>
+#include <thread>
 #include <unistd.h>
 #include <unordered_set>
+#include <vector>
 
 // cxxopts, but all warnings disabled
 #ifdef COMPILER_CLANG
@@ -122,8 +126,11 @@ int main(int argc, char **argv) {
                           cxxopts::value<std::size_t>()->default_value("65536"))
                          ("m,monitor",
                           "output all incoming and outgoing packets to stdout")
+                         ("c,connections",
+                          "number of allowed simultaneous Modbus Server connections.",
+                          cxxopts::value<std::size_t>()->default_value("1"))
                          ("r,reconnect",
-                          "do not terminate if the Modbus Server disconnects.")
+                          "do not terminate if no Modbus Server is connected anymore.")
                          ("byte-timeout",
                           "timeout interval in seconds between two consecutive bytes of the same message. "
                            "In most cases it is sufficient to set the response timeout. "
@@ -228,6 +235,12 @@ int main(int argc, char **argv) {
 
     if (args["ai-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
         std::cerr << "to many ai-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
+        return exit_usage();
+    }
+
+    const auto CONNECTIONS = args["connections"].as<std::size_t>();
+    if (CONNECTIONS == 0) {
+        std::cerr << "The number of connections must not be 0" << std::endl;
         return exit_usage();
     }
 
@@ -336,39 +349,164 @@ int main(int argc, char **argv) {
         return EX_SOFTWARE;
     }
 
+    auto RECONNECT = args.count("reconnect") != 0;
+
     std::cerr << "Listening on " << client->get_listen_addr() << " for connections." << std::endl;
 
-    // connection loop
-    do {
-        // connect client
-        std::cerr << "Waiting for Modbus Server to establish a connection..." << std::endl;
-        std::string client_name;
-        try {
-            client_name = client->connect_client();
-        } catch (const std::runtime_error &e) {
-            if (!terminate) {
-                std::cerr << e.what() << std::endl;
-                return EX_SOFTWARE;
-            }
-            break;
-        }
-
-        std::cerr << "Modbus Server (" << client_name << ") established connection." << std::endl;
-
-        // ========== MAIN LOOP ========== (handle requests)
-        bool connection_closed = false;
-        while (!terminate && !connection_closed) {
+    if (CONNECTIONS == 1) {
+        // connection loop
+        do {
+            // connect client
+            std::cerr << "Waiting for Modbus Server to establish a connection..." << std::endl;
+            std::shared_ptr<Modbus::TCP::Connection> connection;
             try {
-                connection_closed = client->handle_request();
+                connection = client->connect_client();
             } catch (const std::runtime_error &e) {
-                // clang-tidy (LLVM 12.0.1) warning "Condition is always true" is not correct
-                if (!terminate) std::cerr << e.what() << std::endl;
+                if (!terminate) {
+                    std::cerr << e.what() << std::endl;
+                    return EX_SOFTWARE;
+                }
                 break;
             }
-        }
 
-        if (connection_closed) std::cerr << "Modbus Server closed connection." << std::endl;
-    } while (args.count("reconnect"));
+            std::cerr << "Modbus Server (" << connection->get_peer() << ") established connection." << std::endl;
+
+            // ========== MAIN LOOP ========== (handle requests)
+            bool connection_closed = false;
+            while (!terminate && !connection_closed) {
+                try {
+                    connection_closed = client->handle_request();
+                } catch (const std::runtime_error &e) {
+                    if (!terminate) std::cerr << e.what() << std::endl;
+                    break;
+                }
+            }
+
+            if (connection_closed)
+                std::cerr << "Modbus Server (" << connection->get_peer() << ") closed connection." << std::endl;
+        } while (RECONNECT);
+    } else {
+        std::cerr << "WARNING: Using more than one connection is an experimental feature!" << std::endl;
+
+        std::mutex log_lock;          // mutex for logging
+        std::mutex con_finish_mutex;  // mutex for condition_variable 'con_thread_finished'
+        std::condition_variable
+                con_thread_finished;  // condition variable that is notified when a connection thread terminates
+        std::atomic<std::size_t> active_connections;  // number of active connections
+        const auto               PID = getpid();      // pid of main thread
+
+        /*
+         * Thread that handles a single mosbus tcp connection.
+         * It notifies the condition_variable 'con_thread_finished' when the connection was closed
+         */
+        auto connection_thread = [&log_lock, &active_connections, &con_thread_finished, &con_finish_mutex](
+                                         std::shared_ptr<Modbus::TCP::Connection> connection) {
+            bool connection_closed = false;
+            while (!terminate && !connection_closed) {
+                try {
+                    connection_closed = connection->handle_request();
+                } catch (const std::runtime_error &e) {
+                    if (!terminate) std::cerr << e.what() << std::endl;
+                    break;
+                }
+            }
+
+            if (connection_closed) {
+                std::lock_guard<decltype(log_lock)> log_guard(log_lock);
+                std::cerr << "Modbus Server (" << connection->get_peer() << ") closed connection." << std::endl;
+            }
+
+            {
+                std::lock_guard<decltype(con_finish_mutex)> guard(con_finish_mutex);
+                --active_connections;
+            }
+            con_thread_finished.notify_all();
+        };
+
+        /*
+         * Watchdog thread that monitors the number of active connections.
+         * It signals SIGINT to the main thread once all connections are closed.
+         * This thread is only started if the --reconnect option is not set.
+         */
+        auto watchdog_thread =
+                [&con_finish_mutex, CONNECTIONS, &active_connections, &log_lock, &con_thread_finished, PID] {
+                    std::unique_lock lock(con_finish_mutex);
+                    con_thread_finished.wait(lock,
+                                             [&active_connections, CONNECTIONS] { return active_connections == 0; });
+
+                    {
+                        std::lock_guard<decltype(log_lock)> log_guard(log_lock);
+                        std::cerr << "Last active connection closed." << std::endl;
+                    }
+
+                    if (kill(PID, SIGINT)) {
+                        perror("kill");
+                        exit(EX_OSERR);
+                    };
+                };
+
+        std::unique_ptr<std::thread> connection_watchdog;  // connection watchdog thread
+
+        do {
+            // accept connection
+            {
+                std::lock_guard<decltype(log_lock)> log_guard(log_lock);
+                std::cerr << "Waiting for Modbus Server to establish a connection..." << std::endl;
+            }
+            std::shared_ptr<Modbus::TCP::Connection> connection;
+            try {
+                connection = client->connect_client();
+                ++active_connections;
+            } catch (const std::runtime_error &e) {
+                if (!terminate) {
+                    std::cerr << e.what() << std::endl;
+                    return EX_SOFTWARE;
+                }
+                break;
+            }
+
+            {
+                std::lock_guard<decltype(log_lock)> log_guard(log_lock);
+                std::cerr << "Modbus Server (" << connection->get_peer() << ") established connection." << std::endl;
+            }
+
+            // start watchdog if --reconnect is not set and the watchdog is not already started
+            if (!RECONNECT && !connection_watchdog) {
+                connection_watchdog = std::make_unique<std::thread>(watchdog_thread);
+            }
+
+            // start connection thread
+            std::thread thread(connection_thread, connection);
+            thread.detach();
+
+            // check if more connections are possible. If not wait for condition_variable 'con_thread_finished'
+            std::unique_lock lock(con_finish_mutex);
+            if (active_connections >= CONNECTIONS) {
+                {
+                    std::lock_guard<decltype(log_lock)> log_guard(log_lock);
+                    std::cerr << "Waiting for available connection slot..." << std::endl;
+                }
+                con_thread_finished.wait(
+                        lock, [&active_connections, CONNECTIONS] { return active_connections < CONNECTIONS; });
+            }
+            lock.unlock();
+        } while (true);
+
+        // wait for connection threads
+        std::unique_lock lock(con_finish_mutex);
+        if (active_connections != 0) {
+            {
+                std::lock_guard<decltype(log_lock)> log_guard(log_lock);
+                std::cerr << "Waiting for connection threads to terminate..." << std::endl;
+            }
+            con_thread_finished.wait(lock,
+                                     [&active_connections, CONNECTIONS] { return active_connections < CONNECTIONS; });
+        }
+        lock.unlock();
+
+        // wait for watchdog thread
+        if (connection_watchdog) { connection_watchdog->join(); }
+    }
 
     std::cerr << "Terminating..." << std::endl;
 }
