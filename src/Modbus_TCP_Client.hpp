@@ -26,27 +26,27 @@ private:
 public:
     /*! \brief create modbus client (TCP server)
      *
-     * @param ip ip to listen for incoming connections (default 0.0.0.0 (any))
-     * @param port port to listen  for incoming connections (default 502)
+     * @param host host to listen for incoming connections (default 0.0.0.0 (any))
+     * @param service service/port to listen  for incoming connections (default 502)
      * @param mapping modbus mapping object for all client ids
      *                nullptr: an mapping object with maximum size is generated
      * @param tcp_timeout tcp timeout (currently only available on linux systems)
      */
-    explicit Client(const std::string &ip          = "0.0.0.0",
-                    short unsigned int port        = 502,
+    explicit Client(const std::string &host        = "any",
+                    const std::string &service     = "502",
                     modbus_mapping_t  *mapping     = nullptr,
                     std::size_t        tcp_timeout = 5);
 
     /**
      * @brief create modbus client (TCP server) with dedicated mappings per client id
      *
-     * @param ip ip to listen for incoming connections
-     * @param port port to listen  for incoming connections
+     * @param host host to listen for incoming connections
+     * @param service service/port to listen  for incoming connections
      * @param mappings modbus mappings (one for each possible id)
      * @param tcp_timeout tcp timeout (currently only available on linux systems)
      */
-    Client(const std::string &ip,
-           short unsigned int port,
+    Client(const std::string &host,
+           const std::string &service,
            modbus_mapping_t  *mappings[MAX_CLIENT_IDS],
            std::size_t        tcp_timeout = 5);
 
@@ -60,6 +60,12 @@ public:
      * @param debug true: enable debug output
      */
     void set_debug(bool debug);
+
+    /** \brief get the address the tcp server is listening on
+     *
+     * @return server listening address
+     */
+    std::string get_listen_addr();
 
     /*! \brief wait for client to connect
      *
