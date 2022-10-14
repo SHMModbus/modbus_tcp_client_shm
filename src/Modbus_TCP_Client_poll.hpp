@@ -8,10 +8,10 @@
 #include <modbus/modbus.h>
 #include <string>
 #include <sys/poll.h>
+#include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <unistd.h>
 
 namespace Modbus {
 namespace TCP {
