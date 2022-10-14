@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <sys/signalfd.h>
 #include <sysexits.h>
 #include <thread>
 #include <unistd.h>
@@ -48,7 +49,6 @@ static int socket = -1;
 /*! \brief signal handler (SIGINT and SIGTERM)
  *
  */
-static void sig_term_handler(int) { terminate = true; }
 
 constexpr std::array<int, 10> TERM_SIGNALS = {SIGINT,
                                               SIGTERM,
@@ -83,16 +83,22 @@ int main(int argc, char **argv) {
 #    pragma clang diagnostic push
 #    pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
 #endif
-    // establish signal handler
-    struct sigaction term_sa;
-    term_sa.sa_handler = sig_term_handler;
-    term_sa.sa_flags   = SA_RESTART;
-    sigemptyset(&term_sa.sa_mask);
+    // create signal fd
+    sigset_t sigmask;
+    sigemptyset(&sigmask);
     for (const auto SIGNO : TERM_SIGNALS) {
-        if (sigaction(SIGNO, &term_sa, nullptr)) {
-            perror("Failed to establish signal handler");
-            return EX_OSERR;
-        }
+        sigaddset(&sigmask, SIGNO);
+    }
+
+    if (sigprocmask(SIG_BLOCK, &sigmask, NULL) == -1) {
+        perror("sigprocmask");
+        return EX_OSERR;
+    }
+
+    int signal_fd = signalfd(-1, &sigmask, 0);
+    if (signal_fd == -1) {
+        perror("signal_fd");
+        return EX_OSERR;
     }
 #ifdef COMPILER_CLANG
 #    pragma clang diagnostic pop
@@ -352,12 +358,21 @@ int main(int argc, char **argv) {
     std::cerr << "Listening on " << client->get_listen_addr() << " for connections." << std::endl;
 
     try {
-        while (true) {
-            if (!client->run(RECONNECT, -1)) {
-                std::cerr << "No more active connections." << std::endl;
-                break;
+        [&]() {
+            while (true) {
+                auto ret = client->run(signal_fd, RECONNECT, -1);
+
+                switch (ret) {
+                    case Modbus::TCP::Client_Poll::run_t::ok: continue;
+                    case Modbus::TCP::Client_Poll::run_t::term_signal: return;
+                    case Modbus::TCP::Client_Poll::run_t::term_nocon:
+                        std::cerr << "No more active connections." << std::endl;
+                        return;
+                    case Modbus::TCP::Client_Poll::run_t::timeout:
+                    case Modbus::TCP::Client_Poll::run_t::interrupted: continue;
+                }
             }
-        }
+        }();
     } catch (const std::exception &e) {
         if (!terminate) std::cerr << e.what() << std::endl;
     }

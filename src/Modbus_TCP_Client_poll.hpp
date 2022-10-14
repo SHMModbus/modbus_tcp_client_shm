@@ -20,6 +20,14 @@ class Client_Poll {
 public:
     static constexpr std::size_t MAX_CLIENT_IDS = 256;
 
+    enum class run_t {
+        term_signal,
+        term_nocon,
+        ok,
+        timeout,
+        interrupted,
+    };
+
 private:
     const std::size_t          max_clients;
     std::vector<struct pollfd> poll_fds;
@@ -118,10 +126,11 @@ public:
      * @param reconnect false: terminate once the last active connection disconnects
      *                  true: continue listening for new connections if there is no client (Mosbus Server) left
      * @param timeout timeout valoue for call of poll (see: man 2 poll)
+     * @param signal_fd signal file descriptor for termination signals
      * @return true continue
      * @return false terminate
      */
-    bool run(bool reconnect = true, int timeout = -1);
+    run_t run(int signal_fd, bool reconnect = true, int timeout = -1);
 
 private:
 #ifdef OS_LINUX

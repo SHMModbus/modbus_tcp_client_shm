@@ -25,7 +25,7 @@ Client_Poll::Client_Poll(const std::string &host,
                          modbus_mapping_t  *mapping,
                          std::size_t        tcp_timeout,
                          std::size_t        max_clients)
-    : max_clients(max_clients), poll_fds(max_clients + 1, {0, 0, 0}) {
+    : max_clients(max_clients), poll_fds(max_clients + 2, {0, 0, 0}) {
     const char *host_str = "::";
     if (!(host.empty() || host == "any")) host_str = host.c_str();
 
@@ -72,7 +72,7 @@ Client_Poll::Client_Poll(const std::string &host,
                          modbus_mapping_t **mappings,
                          std::size_t        tcp_timeout,
                          std::size_t        max_clients)
-    : max_clients(max_clients), poll_fds(max_clients + 1, {0, 0, 0}) {
+    : max_clients(max_clients), poll_fds(max_clients + 2, {0, 0, 0}) {
     const char *host_str = "::";
     if (!(host.empty() || host == "any")) host_str = host.c_str();
 
@@ -242,8 +242,15 @@ double Client_Poll::get_response_timeout() {
     return static_cast<double>(timeout.sec) + (static_cast<double>(timeout.usec) / (1000.0 * 1000.0));
 }
 
-bool Client_Poll::run(bool reconnect, int timeout) {
+Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) {
     std::size_t i = 0;
+
+    // poll signal fd
+    {
+        auto &fd  = poll_fds[i++];
+        fd.fd     = signal_fd;
+        fd.events = POLLIN;
+    }
 
     // do not poll server socket if maximum number of connections is reached
     const auto active_clients = client_addrs.size();
@@ -262,18 +269,31 @@ bool Client_Poll::run(bool reconnect, int timeout) {
     }
 
     // number of files to poll
-    const nfds_t poll_size = active_clients + (poll_server ? 1 : 0);
+    const nfds_t poll_size = active_clients + (poll_server ? 2 : 1);
 
     int tmp = poll(poll_fds.data(), poll_size, timeout);
     if (tmp == -1) {
-        if (errno == EINTR) return true;
+        if (errno == EINTR) return run_t::interrupted;
         throw std::system_error(errno, std::generic_category(), "Failed to poll socket(s)");
     } else if (tmp == 0) {
         // poll timed out
-        return true;
+        return run_t::timeout;
     }
 
     i = 0;
+    {
+        auto &fd = poll_fds[i++];
+        if (fd.revents) {
+            if (fd.revents & POLLNVAL) throw std::logic_error("poll (server socket) returned POLLNVAL");
+            if (fd.revents & POLLERR) throw std::logic_error("poll (signal fd) returned POLLERR");
+            if (fd.revents & POLLHUP) throw std::logic_error("poll (signal fd) returned POLLHUP");
+            if (fd.revents & POLLIN) return run_t::term_signal;
+            std::ostringstream sstr;
+            sstr << "poll (signal fd) returned unknown revent: " << fd.revents;
+            throw std::logic_error(sstr.str());
+        }
+    }
+
     if (poll_server) {
         auto &fd = poll_fds[i++];
 
@@ -377,10 +397,10 @@ bool Client_Poll::run(bool reconnect, int timeout) {
 
     // check if there are any connections
     if (!reconnect) {
-        if (client_addrs.empty()) return false;
+        if (client_addrs.empty()) return run_t::term_nocon;
     }
 
-    return true;
+    return run_t::ok;
 }
 
 std::string Client_Poll::get_listen_addr() {
