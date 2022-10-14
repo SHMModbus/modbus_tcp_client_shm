@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.13.4 FATAL_ERROR)
 # ======================================================================================================================
 
 # project
-project(Modbus_TCP_client_shm LANGUAGES CXX VERSION 1.2.3)
+project(Modbus_TCP_client_shm LANGUAGES CXX VERSION 1.3.0)
 
 # settings
 set(Target "modbus-tcp-client-shm")    # Executable name (without file extension!)
@@ -23,6 +23,8 @@ option(CLANG_TIDY "use clang-tidy" OFF)
 option(OPTIMIZE_FOR_ARCHITECTURE "enable optimizations for specified architecture" OFF)
 option(LTO_ENABLED "enable interprocedural and link time optimizations" ON)
 option(COMPILER_EXTENSIONS "enable compiler specific C++ extensions" OFF)
+option(BETA_VERSION "version is a beta version" ON)
+set(BETA_VERSION_NR 1)
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -55,7 +57,12 @@ set_target_properties(${Target} PROPERTIES
     )
 
 # compiler definitions
-target_compile_definitions(${Target} PUBLIC "PROJECT_VERSION=\"${CMAKE_PROJECT_VERSION}\"")
+if(BETA_VERSION)
+    target_compile_definitions(${Target} PUBLIC "PROJECT_VERSION=\"${CMAKE_PROJECT_VERSION}-beta${BETA_VERSION_NR}\"")
+else()
+    target_compile_definitions(${Target} PUBLIC "PROJECT_VERSION=\"${CMAKE_PROJECT_VERSION}\"")
+endif()
+
 target_compile_definitions(${Target} PUBLIC "PROJECT_NAME=\"${CMAKE_PROJECT_NAME}\"")
 target_compile_definitions(${Target} PUBLIC "COMPILER_INFO=\"${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}\"")
 target_compile_definitions(${Target} PUBLIC "SYSTEM_INFO=\"${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_VERSION} ${CMAKE_HOST_SYSTEM_PROCESSOR}\"")
