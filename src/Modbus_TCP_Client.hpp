@@ -5,9 +5,13 @@
 
 #pragma once
 
+#include <memory>
 #include <modbus/modbus.h>
+#include <mutex>
 #include <string>
 #include <unordered_map>
+
+#include "Modbus_TCP_connection.hpp"
 
 namespace Modbus {
 namespace TCP {
@@ -22,31 +26,32 @@ private:
             *mappings[MAX_CLIENT_IDS];  //!< modbus data objects (one per possible client id) (see libmodbus library)
     modbus_mapping_t *delete_mapping;   //!< contains a pointer to a mapping that is to be deleted
     int               socket = -1;      //!< socket of the modbus connection
+    std::mutex        modbus_lock;
 
 public:
     /*! \brief create modbus client (TCP server)
      *
-     * @param ip ip to listen for incoming connections (default 0.0.0.0 (any))
-     * @param port port to listen  for incoming connections (default 502)
+     * @param host host to listen for incoming connections (default 0.0.0.0 (any))
+     * @param service service/port to listen  for incoming connections (default 502)
      * @param mapping modbus mapping object for all client ids
      *                nullptr: an mapping object with maximum size is generated
      * @param tcp_timeout tcp timeout (currently only available on linux systems)
      */
-    explicit Client(const std::string &ip          = "0.0.0.0",
-                    short unsigned int port        = 502,
+    explicit Client(const std::string &host        = "any",
+                    const std::string &service     = "502",
                     modbus_mapping_t  *mapping     = nullptr,
                     std::size_t        tcp_timeout = 5);
 
     /**
      * @brief create modbus client (TCP server) with dedicated mappings per client id
      *
-     * @param ip ip to listen for incoming connections
-     * @param port port to listen  for incoming connections
+     * @param host host to listen for incoming connections
+     * @param service service/port to listen  for incoming connections
      * @param mappings modbus mappings (one for each possible id)
      * @param tcp_timeout tcp timeout (currently only available on linux systems)
      */
-    Client(const std::string &ip,
-           short unsigned int port,
+    Client(const std::string &host,
+           const std::string &service,
            modbus_mapping_t  *mappings[MAX_CLIENT_IDS],
            std::size_t        tcp_timeout = 5);
 
@@ -61,11 +66,17 @@ public:
      */
     void set_debug(bool debug);
 
+    /** \brief get the address the tcp server is listening on
+     *
+     * @return server listening address
+     */
+    std::string get_listen_addr();
+
     /*! \brief wait for client to connect
      *
      * @return ip of the connected client
      */
-    std::string connect_client();
+    std::shared_ptr<Connection> connect_client();
 
     /*! \brief wait for request from Modbus Server and generate reply
      *

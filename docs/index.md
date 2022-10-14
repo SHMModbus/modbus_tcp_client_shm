@@ -78,6 +78,11 @@ setcap 'cap_net_bind_service=+ep' /path/to/binary
 
 ## Install
 
+### Using the Arch User Repository (recommended for Arch based Linux distributions)
+The application is available as [modbus-tcp-client-shm](https://aur.archlinux.org/packages/modbus-tcp-client-shm) in the [Arch User Repository](https://aur.archlinux.org/).
+See the [Arch Wiki](https://wiki.archlinux.org/title/Arch_User_Repository) for information about how to install AUR packages.
+
+
 ### Using the Modbus Collection Flapak Package: Shared Memory Modbus (recommended)
 [SHM-Modbus](https://nikolask-source.github.io/SHM_Modbus/) is a collection of the shared memory modbus tools.
 It is available as flatpak and published on flathub as ```network.koesling.shm-modbs```.
