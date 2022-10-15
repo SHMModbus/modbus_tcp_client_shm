@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <sys/resource.h>
 #include <sys/signalfd.h>
 #include <sysexits.h>
 #include <thread>
@@ -264,6 +265,26 @@ int main(int argc, char **argv) {
     }
 
     const auto FORCE_SHM = args.count("force") > 0;
+
+    // check ulimit
+    std::size_t min_files =
+            CONNECTIONS + 5;  // number of connections + stderr + stdout + stdin + signal_fd + server socket
+    if (SEPARATE) min_files += SEPARATE * 4;
+    else if (SEPARATE_ALL)
+        min_files += Modbus::TCP::Client_Poll::MAX_CLIENT_IDS * 4;
+    else
+        min_files += 4;
+    struct rlimit limit;
+    if (getrlimit(RLIMIT_NOFILE, &limit) != 0) {
+        perror("getrlimit");
+        return EX_OSERR;
+    }
+
+    if (limit.rlim_cur < min_files) {
+        std::cerr << Print_Time::iso << " WARNING: limit of open simultaneous files (" << limit.rlim_cur
+                  << ") is below the possible maximum that is required for the current settings (" << min_files << ")"
+                  << std::endl;
+    }
 
     // create shared memory object for modbus registers
     std::unique_ptr<Modbus::shm::Shm_Mapping> fallback_mapping;
