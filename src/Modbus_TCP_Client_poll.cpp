@@ -5,6 +5,7 @@
 
 #include "Modbus_TCP_Client_poll.hpp"
 
+#include "Print_Time.hpp"
 #include "sa_to_str.hpp"
 
 #include <iostream>
@@ -299,11 +300,9 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
 
         if (fd.revents) {
             if (fd.revents & POLLNVAL) throw std::logic_error("poll (server socket) returned POLLNVAL");
-            else if (fd.revents & POLLERR)
-                throw std::logic_error("poll (server socket) returned POLLERR");
             else if (fd.revents & POLLHUP)
                 throw std::logic_error("poll (server socket) returned POLLHUP");
-            else if (fd.revents & POLLIN) {
+            else if (fd.revents & POLLIN || fd.revents & POLLERR) {
                 tmp = modbus_tcp_pi_accept(modbus, &server_socket);
                 if (tmp < 0) {
                     const std::string error_msg = modbus_strerror(errno);
@@ -328,7 +327,7 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
                 sstr << ':' << htons(reinterpret_cast<const struct sockaddr_in *>(&peer_addr)->sin_port);
 
                 client_addrs[client_socket] = sstr.str();
-                std::cerr << '[' << active_clients + 1 << "] Modbus Server (" << sstr.str()
+                std::cerr << Print_Time::iso << " INFO: [" << active_clients + 1 << "] Modbus Server (" << sstr.str()
                           << ") established connection." << std::endl;
             } else {
                 std::ostringstream sstr;
@@ -343,8 +342,8 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
 
         auto close_con = [&fd](auto &client_addrs) {
             close(fd.fd);
-            std::cerr << '[' << client_addrs.size() - 1 << "] Modbus server (" << client_addrs[fd.fd]
-                      << ") closed connection." << std::endl;
+            std::cerr << Print_Time::iso << " INFO: [" << client_addrs.size() - 1 << "] Modbus server ("
+                      << client_addrs[fd.fd] << ") connection closed." << std::endl;
             client_addrs.erase(fd.fd);
         };
 
@@ -355,15 +354,9 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
                 throw std::logic_error(sstr.str());
             }
 
-            if (fd.revents & POLLERR) {
-                std::ostringstream sstr;
-                sstr << "poll (client socket: " << client_addrs.at(fd.fd) << ") returned POLLERR";
-                throw std::runtime_error(sstr.str());
-            }
-
-            if (fd.revents & POLLHUP) { close_con(client_addrs); }
-
-            if (fd.revents & POLLIN) {
+            if (fd.revents & POLLHUP & !(fd.revents & POLLERR)) {
+                close_con(client_addrs);
+            } else if (fd.revents & POLLIN || fd.revents & POLLERR) {
                 modbus_set_socket(modbus, fd.fd);
 
                 uint8_t query[MODBUS_TCP_MAX_ADU_LENGTH];
@@ -378,16 +371,16 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
                     // handle request
                     int ret = modbus_reply(modbus, query, rc, mapping);
                     if (ret == -1) {
-                        const std::string error_msg = modbus_strerror(errno);
-                        throw std::runtime_error("modbus_reply failed: " + error_msg + ' ' + std::to_string(errno));
+                        std::cerr << Print_Time::iso << " ERROR: modbus_reply failed: " << modbus_strerror(errno)
+                                  << std::endl;
+                        close_con(client_addrs);
                     }
                 } else if (rc == -1) {
-                    if (errno == ECONNRESET) {
-                        close_con(client_addrs);
-                    } else {
-                        const std::string error_msg = modbus_strerror(errno);
-                        throw std::runtime_error("modbus_receive failed: " + error_msg + ' ' + std::to_string(errno));
+                    if (errno != ECONNRESET) {
+                        std::cerr << Print_Time::iso << " ERROR: modbus_receive failed: " << modbus_strerror(errno)
+                                  << std::endl;
                     }
+                    close_con(client_addrs);
                 } else {  // rc == 0
                     close_con(client_addrs);
                 }

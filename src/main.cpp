@@ -34,8 +34,10 @@
 #endif
 
 #include "Modbus_TCP_Client_poll.hpp"
+#include "Print_Time.hpp"
 #include "license.hpp"
 #include "modbus_shm.hpp"
+
 
 //! Maximum number of registers per type
 constexpr size_t MODBUS_MAX_REGS = 0x10000;
@@ -77,7 +79,9 @@ int main(int argc, char **argv) {
     };
 
     auto euid = geteuid();
-    if (!euid) std::cerr << "!!!! WARNING: You should not execute this program with root privileges !!!!" << std::endl;
+    if (!euid)
+        std::cerr << Print_Time::iso << " WARNING: !!!! You should not execute this program with root privileges !!!!"
+                  << std::endl;
 
 #ifdef COMPILER_CLANG
 #    pragma clang diagnostic push
@@ -179,7 +183,7 @@ int main(int argc, char **argv) {
     try {
         args = options.parse(argc, argv);
     } catch (cxxopts::OptionParseException &e) {
-        std::cerr << "Failed to parse arguments: " << e.what() << '.' << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: Failed to parse arguments: " << e.what() << '.' << std::endl;
         return exit_usage();
     }
 
@@ -222,35 +226,40 @@ int main(int argc, char **argv) {
 
     // check arguments
     if (args["do-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
-        std::cerr << "to many do-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: to many do-registers (maximum: " << MODBUS_MAX_REGS << ")."
+                  << std::endl;
         return exit_usage();
     }
 
     if (args["di-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
-        std::cerr << "to many di-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: to many di-registers (maximum: " << MODBUS_MAX_REGS << ")."
+                  << std::endl;
         return exit_usage();
     }
 
     if (args["ao-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
-        std::cerr << "to many ao-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: to many ao-registers (maximum: " << MODBUS_MAX_REGS << ")."
+                  << std::endl;
         return exit_usage();
     }
 
     if (args["ai-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
-        std::cerr << "to many ai-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: to many ai-registers (maximum: " << MODBUS_MAX_REGS << ")."
+                  << std::endl;
         return exit_usage();
     }
 
     const auto CONNECTIONS = args["connections"].as<std::size_t>();
     if (CONNECTIONS == 0) {
-        std::cerr << "The number of connections must not be 0" << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: The number of connections must not be 0" << std::endl;
         return exit_usage();
     }
 
     const auto SEPARATE     = args.count("separate");
     const auto SEPARATE_ALL = args.count("separate-all");
     if (SEPARATE && SEPARATE_ALL) {
-        std::cerr << "The options --separate and --separate-all cannot be used together." << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: The options --separate and --separate-all cannot be used together."
+                  << std::endl;
         return EX_USAGE;
     }
 
@@ -267,7 +276,7 @@ int main(int argc, char **argv) {
                                                                           args["name-prefix"].as<std::string>(),
                                                                           FORCE_SHM);
         } catch (const std::system_error &e) {
-            std::cerr << e.what() << std::endl;
+            std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
             return EX_OSERR;
         }
     }
@@ -290,7 +299,7 @@ int main(int argc, char **argv) {
                                                                    FORCE_SHM));
                 mb_mappings[i] = separate_mappings.back()->get_mapping();
             } catch (const std::system_error &e) {
-                std::cerr << e.what() << std::endl;
+                std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
                 return EX_OSERR;
             }
         }
@@ -317,7 +326,7 @@ int main(int argc, char **argv) {
                                                                    FORCE_SHM));
                 mb_mappings[a] = separate_mappings.back()->get_mapping();
             } catch (const std::system_error &e) {
-                std::cerr << e.what() << std::endl;
+                std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
                 return EX_OSERR;
             }
         }
@@ -338,7 +347,7 @@ int main(int argc, char **argv) {
                                                             CONNECTIONS);
         client->set_debug(args.count("monitor"));
     } catch (const std::runtime_error &e) {
-        std::cerr << e.what() << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
         return EX_SOFTWARE;
     }
     socket = client->get_socket();
@@ -349,13 +358,14 @@ int main(int argc, char **argv) {
 
         if (args.count("byte-timeout")) { client->set_byte_timeout(args["byte-timeout"].as<double>()); }
     } catch (const std::runtime_error &e) {
-        std::cerr << e.what() << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
         return EX_SOFTWARE;
     }
 
     auto RECONNECT = args.count("reconnect") != 0;
 
-    std::cerr << "Listening on " << client->get_listen_addr() << " for connections." << std::endl;
+    std::cerr << Print_Time::iso << " INFO: Listening on " << client->get_listen_addr() << " for connections."
+              << std::endl;
 
     try {
         [&]() {
@@ -366,7 +376,7 @@ int main(int argc, char **argv) {
                     case Modbus::TCP::Client_Poll::run_t::ok: continue;
                     case Modbus::TCP::Client_Poll::run_t::term_signal: return;
                     case Modbus::TCP::Client_Poll::run_t::term_nocon:
-                        std::cerr << "No more active connections." << std::endl;
+                        std::cerr << Print_Time::iso << " INFO: No more active connections." << std::endl;
                         return;
                     case Modbus::TCP::Client_Poll::run_t::timeout:
                     case Modbus::TCP::Client_Poll::run_t::interrupted: continue;
@@ -374,8 +384,8 @@ int main(int argc, char **argv) {
             }
         }();
     } catch (const std::exception &e) {
-        if (!terminate) std::cerr << e.what() << std::endl;
+        if (!terminate) std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
     }
 
-    std::cerr << "Terminating..." << std::endl;
+    std::cerr << Print_Time::iso << " INFO: Terminating..." << std::endl;
 }
