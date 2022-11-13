@@ -1,32 +1,43 @@
 /*
- * Copyright (C) 2021-2022 Nikolas Koesling <nikolas@koesling.info>.
+ * Copyright (C) 2022 Nikolas Koesling <nikolas@koesling.info>.
  * This program is free software. You can redistribute it and/or modify it under the terms of the MIT License.
  */
-
 #pragma once
 
-#include <memory>
+#include <cstddef>
 #include <modbus/modbus.h>
-#include <mutex>
 #include <string>
+#include <sys/poll.h>
+#include <unistd.h>
 #include <unordered_map>
-
-#include "Modbus_TCP_connection.hpp"
+#include <unordered_set>
+#include <vector>
 
 namespace Modbus {
 namespace TCP {
 
-constexpr std::size_t MAX_CLIENT_IDS = 256;
+class Client_Poll {
+public:
+    static constexpr std::size_t MAX_CLIENT_IDS = 256;
 
-//! Modbus TCP client
-class Client {
+    enum class run_t {
+        term_signal,
+        term_nocon,
+        ok,
+        timeout,
+        interrupted,
+    };
+
 private:
+    const std::size_t          max_clients;
+    std::vector<struct pollfd> poll_fds;
+
     modbus_t *modbus;  //!< modbus object (see libmodbus library)
     modbus_mapping_t
             *mappings[MAX_CLIENT_IDS];  //!< modbus data objects (one per possible client id) (see libmodbus library)
-    modbus_mapping_t *delete_mapping;   //!< contains a pointer to a mapping that is to be deleted
-    int               socket = -1;      //!< socket of the modbus connection
-    std::mutex        modbus_lock;
+    modbus_mapping_t                    *delete_mapping;      //!< contains a pointer to a mapping that is to be deleted
+    int                                  server_socket = -1;  //!< socket of the modbus connection
+    std::unordered_map<int, std::string> client_addrs;
 
 public:
     /*! \brief create modbus client (TCP server)
@@ -37,10 +48,11 @@ public:
      *                nullptr: an mapping object with maximum size is generated
      * @param tcp_timeout tcp timeout (currently only available on linux systems)
      */
-    explicit Client(const std::string &host        = "any",
-                    const std::string &service     = "502",
-                    modbus_mapping_t  *mapping     = nullptr,
-                    std::size_t        tcp_timeout = 5);
+    explicit Client_Poll(const std::string &host        = "any",
+                         const std::string &service     = "502",
+                         modbus_mapping_t  *mapping     = nullptr,
+                         std::size_t        tcp_timeout = 5,
+                         std::size_t        max_clients = 1);
 
     /**
      * @brief create modbus client (TCP server) with dedicated mappings per client id
@@ -50,15 +62,16 @@ public:
      * @param mappings modbus mappings (one for each possible id)
      * @param tcp_timeout tcp timeout (currently only available on linux systems)
      */
-    Client(const std::string &host,
-           const std::string &service,
-           modbus_mapping_t  *mappings[MAX_CLIENT_IDS],
-           std::size_t        tcp_timeout = 5);
+    Client_Poll(const std::string &host,
+                const std::string &service,
+                modbus_mapping_t  *mappings[MAX_CLIENT_IDS],
+                std::size_t        tcp_timeout = 5,
+                std::size_t        max_clients = 1);
 
     /*! \brief destroy the modbus client
      *
      */
-    ~Client();
+    ~Client_Poll();
 
     /*! \brief enable/disable debugging output
      *
@@ -71,18 +84,6 @@ public:
      * @return server listening address
      */
     std::string get_listen_addr();
-
-    /*! \brief wait for client to connect
-     *
-     * @return ip of the connected client
-     */
-    std::shared_ptr<Connection> connect_client();
-
-    /*! \brief wait for request from Modbus Server and generate reply
-     *
-     * @return true: connection closed
-     */
-    bool handle_request();
 
     /*!
      * \brief set byte timeout
@@ -118,7 +119,18 @@ public:
      *
      * @return socket of the modbus connection
      */
-    [[nodiscard]] int get_socket() const noexcept { return socket; }
+    [[nodiscard]] int get_socket() const noexcept { return server_socket; }
+
+    /**
+     * @brief perform one update cycle
+     * @param reconnect false: terminate once the last active connection disconnects
+     *                  true: continue listening for new connections if there is no client (Mosbus Server) left
+     * @param timeout timeout valoue for call of poll (see: man 2 poll)
+     * @param signal_fd signal file descriptor for termination signals
+     * @return true continue
+     * @return false terminate
+     */
+    run_t run(int signal_fd, bool reconnect = true, int timeout = -1);
 
 private:
 #ifdef OS_LINUX

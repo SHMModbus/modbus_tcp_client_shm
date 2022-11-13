@@ -9,6 +9,8 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <sys/resource.h>
+#include <sys/signalfd.h>
 #include <sysexits.h>
 #include <thread>
 #include <unistd.h>
@@ -32,9 +34,11 @@
 #    pragma GCC diagnostic pop
 #endif
 
-#include "Modbus_TCP_Client.hpp"
+#include "Modbus_TCP_Client_poll.hpp"
+#include "Print_Time.hpp"
 #include "license.hpp"
 #include "modbus_shm.hpp"
+
 
 //! Maximum number of registers per type
 constexpr size_t MODBUS_MAX_REGS = 0x10000;
@@ -48,10 +52,6 @@ static int socket = -1;
 /*! \brief signal handler (SIGINT and SIGTERM)
  *
  */
-static void sig_term_handler(int) {
-    if (socket != -1) close(socket);
-    terminate = true;
-}
 
 constexpr std::array<int, 10> TERM_SIGNALS = {SIGINT,
                                               SIGTERM,
@@ -80,22 +80,30 @@ int main(int argc, char **argv) {
     };
 
     auto euid = geteuid();
-    if (!euid) std::cerr << "!!!! WARNING: You should not execute this program with root privileges !!!!" << std::endl;
+    if (!euid)
+        std::cerr << Print_Time::iso << " WARNING: !!!! You should not execute this program with root privileges !!!!"
+                  << std::endl;
 
 #ifdef COMPILER_CLANG
 #    pragma clang diagnostic push
 #    pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
 #endif
-    // establish signal handler
-    struct sigaction term_sa;
-    term_sa.sa_handler = sig_term_handler;
-    term_sa.sa_flags   = SA_RESTART;
-    sigemptyset(&term_sa.sa_mask);
+    // create signal fd
+    sigset_t sigmask;
+    sigemptyset(&sigmask);
     for (const auto SIGNO : TERM_SIGNALS) {
-        if (sigaction(SIGNO, &term_sa, nullptr)) {
-            perror("Failed to establish signal handler");
-            return EX_OSERR;
-        }
+        sigaddset(&sigmask, SIGNO);
+    }
+
+    if (sigprocmask(SIG_BLOCK, &sigmask, NULL) == -1) {
+        perror("sigprocmask");
+        return EX_OSERR;
+    }
+
+    int signal_fd = signalfd(-1, &sigmask, 0);
+    if (signal_fd == -1) {
+        perror("signal_fd");
+        return EX_OSERR;
     }
 #ifdef COMPILER_CLANG
 #    pragma clang diagnostic pop
@@ -176,7 +184,7 @@ int main(int argc, char **argv) {
     try {
         args = options.parse(argc, argv);
     } catch (cxxopts::OptionParseException &e) {
-        std::cerr << "Failed to parse arguments: " << e.what() << '.' << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: Failed to parse arguments: " << e.what() << '.' << std::endl;
         return exit_usage();
     }
 
@@ -219,39 +227,64 @@ int main(int argc, char **argv) {
 
     // check arguments
     if (args["do-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
-        std::cerr << "to many do-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: to many do-registers (maximum: " << MODBUS_MAX_REGS << ")."
+                  << std::endl;
         return exit_usage();
     }
 
     if (args["di-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
-        std::cerr << "to many di-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: to many di-registers (maximum: " << MODBUS_MAX_REGS << ")."
+                  << std::endl;
         return exit_usage();
     }
 
     if (args["ao-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
-        std::cerr << "to many ao-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: to many ao-registers (maximum: " << MODBUS_MAX_REGS << ")."
+                  << std::endl;
         return exit_usage();
     }
 
     if (args["ai-registers"].as<std::size_t>() > MODBUS_MAX_REGS) {
-        std::cerr << "to many ai-registers (maximum: " << MODBUS_MAX_REGS << ")." << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: to many ai-registers (maximum: " << MODBUS_MAX_REGS << ")."
+                  << std::endl;
         return exit_usage();
     }
 
     const auto CONNECTIONS = args["connections"].as<std::size_t>();
     if (CONNECTIONS == 0) {
-        std::cerr << "The number of connections must not be 0" << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: The number of connections must not be 0" << std::endl;
         return exit_usage();
     }
 
     const auto SEPARATE     = args.count("separate");
     const auto SEPARATE_ALL = args.count("separate-all");
     if (SEPARATE && SEPARATE_ALL) {
-        std::cerr << "The options --separate and --separate-all cannot be used together." << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: The options --separate and --separate-all cannot be used together."
+                  << std::endl;
         return EX_USAGE;
     }
 
     const auto FORCE_SHM = args.count("force") > 0;
+
+    // check ulimit
+    std::size_t min_files =
+            CONNECTIONS + 5;  // number of connections + stderr + stdout + stdin + signal_fd + server socket
+    if (SEPARATE) min_files += SEPARATE * 4;
+    else if (SEPARATE_ALL)
+        min_files += Modbus::TCP::Client_Poll::MAX_CLIENT_IDS * 4;
+    else
+        min_files += 4;
+    struct rlimit limit;
+    if (getrlimit(RLIMIT_NOFILE, &limit) != 0) {
+        perror("getrlimit");
+        return EX_OSERR;
+    }
+
+    if (limit.rlim_cur < min_files) {
+        std::cerr << Print_Time::iso << " WARNING: limit of open simultaneous files (" << limit.rlim_cur
+                  << ") is below the possible maximum that is required for the current settings (" << min_files << ")"
+                  << std::endl;
+    }
 
     // create shared memory object for modbus registers
     std::unique_ptr<Modbus::shm::Shm_Mapping> fallback_mapping;
@@ -264,16 +297,16 @@ int main(int argc, char **argv) {
                                                                           args["name-prefix"].as<std::string>(),
                                                                           FORCE_SHM);
         } catch (const std::system_error &e) {
-            std::cerr << e.what() << std::endl;
+            std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
             return EX_OSERR;
         }
     }
 
-    std::array<modbus_mapping_t *, Modbus::TCP::MAX_CLIENT_IDS> mb_mappings;
-    std::vector<std::unique_ptr<Modbus::shm::Shm_Mapping>>      separate_mappings;
+    std::array<modbus_mapping_t *, Modbus::TCP::Client_Poll::MAX_CLIENT_IDS> mb_mappings;
+    std::vector<std::unique_ptr<Modbus::shm::Shm_Mapping>>                   separate_mappings;
 
     if (SEPARATE_ALL) {
-        for (std::size_t i = 0; i < Modbus::TCP::MAX_CLIENT_IDS; ++i) {
+        for (std::size_t i = 0; i < Modbus::TCP::Client_Poll::MAX_CLIENT_IDS; ++i) {
             std::ostringstream sstr;
             sstr << args["name-prefix"].as<std::string>() << std::setfill('0') << std::hex << std::setw(2) << i << '_';
 
@@ -287,7 +320,7 @@ int main(int argc, char **argv) {
                                                                    FORCE_SHM));
                 mb_mappings[i] = separate_mappings.back()->get_mapping();
             } catch (const std::system_error &e) {
-                std::cerr << e.what() << std::endl;
+                std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
                 return EX_OSERR;
             }
         }
@@ -314,7 +347,7 @@ int main(int argc, char **argv) {
                                                                    FORCE_SHM));
                 mb_mappings[a] = separate_mappings.back()->get_mapping();
             } catch (const std::system_error &e) {
-                std::cerr << e.what() << std::endl;
+                std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
                 return EX_OSERR;
             }
         }
@@ -322,19 +355,20 @@ int main(int argc, char **argv) {
 
 
     // create modbus client
-    std::unique_ptr<Modbus::TCP::Client> client;
+    std::unique_ptr<Modbus::TCP::Client_Poll> client;
     try {
-        client = std::make_unique<Modbus::TCP::Client>(args["host"].as<std::string>(),
-                                                       args["service"].as<std::string>(),
-                                                       mb_mappings.data(),
+        client = std::make_unique<Modbus::TCP::Client_Poll>(args["host"].as<std::string>(),
+                                                            args["service"].as<std::string>(),
+                                                            mb_mappings.data(),
 #ifdef OS_LINUX
-                                                       args["tcp-timeout"].as<std::size_t>());
+                                                            args["tcp-timeout"].as<std::size_t>(),
 #else
-                                                       0);
+                                                            0,
 #endif
+                                                            CONNECTIONS);
         client->set_debug(args.count("monitor"));
     } catch (const std::runtime_error &e) {
-        std::cerr << e.what() << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
         return EX_SOFTWARE;
     }
     socket = client->get_socket();
@@ -345,168 +379,34 @@ int main(int argc, char **argv) {
 
         if (args.count("byte-timeout")) { client->set_byte_timeout(args["byte-timeout"].as<double>()); }
     } catch (const std::runtime_error &e) {
-        std::cerr << e.what() << std::endl;
+        std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
         return EX_SOFTWARE;
     }
 
     auto RECONNECT = args.count("reconnect") != 0;
 
-    std::cerr << "Listening on " << client->get_listen_addr() << " for connections." << std::endl;
+    std::cerr << Print_Time::iso << " INFO: Listening on " << client->get_listen_addr() << " for connections."
+              << std::endl;
 
-    if (CONNECTIONS == 1) {
-        // connection loop
-        do {
-            // connect client
-            std::cerr << "Waiting for Modbus Server to establish a connection..." << std::endl;
-            std::shared_ptr<Modbus::TCP::Connection> connection;
-            try {
-                connection = client->connect_client();
-            } catch (const std::runtime_error &e) {
-                if (!terminate) {
-                    std::cerr << e.what() << std::endl;
-                    return EX_SOFTWARE;
-                }
-                break;
-            }
+    try {
+        [&]() {
+            while (true) {
+                auto ret = client->run(signal_fd, RECONNECT, -1);
 
-            std::cerr << "Modbus Server (" << connection->get_peer() << ") established connection." << std::endl;
-
-            // ========== MAIN LOOP ========== (handle requests)
-            bool connection_closed = false;
-            while (!terminate && !connection_closed) {
-                try {
-                    connection_closed = client->handle_request();
-                } catch (const std::runtime_error &e) {
-                    if (!terminate) std::cerr << e.what() << std::endl;
-                    break;
+                switch (ret) {
+                    case Modbus::TCP::Client_Poll::run_t::ok: continue;
+                    case Modbus::TCP::Client_Poll::run_t::term_signal: return;
+                    case Modbus::TCP::Client_Poll::run_t::term_nocon:
+                        std::cerr << Print_Time::iso << " INFO: No more active connections." << std::endl;
+                        return;
+                    case Modbus::TCP::Client_Poll::run_t::timeout:
+                    case Modbus::TCP::Client_Poll::run_t::interrupted: continue;
                 }
             }
-
-            if (connection_closed)
-                std::cerr << "Modbus Server (" << connection->get_peer() << ") closed connection." << std::endl;
-        } while (RECONNECT);
-    } else {
-        std::cerr << "WARNING: Using more than one connection is an experimental feature!" << std::endl;
-
-        std::mutex log_lock;          // mutex for logging
-        std::mutex con_finish_mutex;  // mutex for condition_variable 'con_thread_finished'
-        std::condition_variable
-                con_thread_finished;  // condition variable that is notified when a connection thread terminates
-        std::atomic<std::size_t> active_connections;  // number of active connections
-        const auto               PID = getpid();      // pid of main thread
-
-        /*
-         * Thread that handles a single mosbus tcp connection.
-         * It notifies the condition_variable 'con_thread_finished' when the connection was closed
-         */
-        auto connection_thread = [&log_lock, &active_connections, &con_thread_finished, &con_finish_mutex](
-                                         std::shared_ptr<Modbus::TCP::Connection> connection) {
-            bool connection_closed = false;
-            while (!terminate && !connection_closed) {
-                try {
-                    connection_closed = connection->handle_request();
-                } catch (const std::runtime_error &e) {
-                    if (!terminate) std::cerr << e.what() << std::endl;
-                    break;
-                }
-            }
-
-            if (connection_closed) {
-                std::lock_guard<decltype(log_lock)> log_guard(log_lock);
-                std::cerr << "Modbus Server (" << connection->get_peer() << ") closed connection." << std::endl;
-            }
-
-            {
-                std::lock_guard<decltype(con_finish_mutex)> guard(con_finish_mutex);
-                --active_connections;
-            }
-            con_thread_finished.notify_all();
-        };
-
-        /*
-         * Watchdog thread that monitors the number of active connections.
-         * It signals SIGINT to the main thread once all connections are closed.
-         * This thread is only started if the --reconnect option is not set.
-         */
-        auto watchdog_thread =
-                [&con_finish_mutex, CONNECTIONS, &active_connections, &log_lock, &con_thread_finished, PID] {
-                    std::unique_lock lock(con_finish_mutex);
-                    con_thread_finished.wait(lock,
-                                             [&active_connections, CONNECTIONS] { return active_connections == 0; });
-
-                    {
-                        std::lock_guard<decltype(log_lock)> log_guard(log_lock);
-                        std::cerr << "Last active connection closed." << std::endl;
-                    }
-
-                    if (kill(PID, SIGINT)) {
-                        perror("kill");
-                        exit(EX_OSERR);
-                    };
-                };
-
-        std::unique_ptr<std::thread> connection_watchdog;  // connection watchdog thread
-
-        do {
-            // accept connection
-            {
-                std::lock_guard<decltype(log_lock)> log_guard(log_lock);
-                std::cerr << "Waiting for Modbus Server to establish a connection..." << std::endl;
-            }
-            std::shared_ptr<Modbus::TCP::Connection> connection;
-            try {
-                connection = client->connect_client();
-                ++active_connections;
-            } catch (const std::runtime_error &e) {
-                if (!terminate) {
-                    std::cerr << e.what() << std::endl;
-                    return EX_SOFTWARE;
-                }
-                break;
-            }
-
-            {
-                std::lock_guard<decltype(log_lock)> log_guard(log_lock);
-                std::cerr << "Modbus Server (" << connection->get_peer() << ") established connection." << std::endl;
-            }
-
-            // start watchdog if --reconnect is not set and the watchdog is not already started
-            if (!RECONNECT && !connection_watchdog) {
-                connection_watchdog = std::make_unique<std::thread>(watchdog_thread);
-            }
-
-            // start connection thread
-            std::thread thread(connection_thread, connection);
-            thread.detach();
-
-            // check if more connections are possible. If not wait for condition_variable 'con_thread_finished'
-            std::unique_lock lock(con_finish_mutex);
-            if (active_connections >= CONNECTIONS) {
-                {
-                    std::lock_guard<decltype(log_lock)> log_guard(log_lock);
-                    std::cerr << "Waiting for available connection slot..." << std::endl;
-                }
-                con_thread_finished.wait(
-                        lock, [&active_connections, CONNECTIONS] { return active_connections < CONNECTIONS; });
-            }
-            lock.unlock();
-        } while (true);
-
-        // wait for connection threads
-        std::unique_lock lock(con_finish_mutex);
-        if (active_connections != 0) {
-            {
-                std::lock_guard<decltype(log_lock)> log_guard(log_lock);
-                std::cerr << "Waiting for connection threads to terminate..." << std::endl;
-            }
-            con_thread_finished.wait(lock,
-                                     [&active_connections, CONNECTIONS] { return active_connections < CONNECTIONS; });
-        }
-        lock.unlock();
-
-        // wait for watchdog thread
-        if (connection_watchdog) { connection_watchdog->join(); }
+        }();
+    } catch (const std::exception &e) {
+        if (!terminate) std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
     }
 
-    std::cerr << "Terminating..." << std::endl;
+    std::cerr << Print_Time::iso << " INFO: Terminating..." << std::endl;
 }
