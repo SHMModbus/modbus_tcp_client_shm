@@ -14,7 +14,7 @@ set(ARCHITECTURE "native")        # CPU architecture to optimize for (only relev
 # options
 option(BUILD_DOC "Build documentation" OFF)
 option(COMPILER_WARNINGS "Enable compiler warnings" ON)
-option(ENABLE_MULTITHREADING "Link the default multithreading library for the current target system" ON)
+option(ENABLE_MULTITHREADING "Link the default multithreading library for the current target system" OFF)
 option(MAKE_32_BIT_BINARY "Compile as 32 bit application. No effect on 32 bit Systems" OFF)
 option(OPENMP "enable openmp" OFF)
 option(OPTIMIZE_DEBUG "apply optimizations also in debug mode" ON)
@@ -23,7 +23,7 @@ option(CLANG_TIDY "use clang-tidy" OFF)
 option(OPTIMIZE_FOR_ARCHITECTURE "enable optimizations for specified architecture" OFF)
 option(LTO_ENABLED "enable interprocedural and link time optimizations" ON)
 option(COMPILER_EXTENSIONS "enable compiler specific C++ extensions" OFF)
-option(BETA_VERSION "version is a beta version" ON)
+option(BETA_VERSION "version is a beta version" OFF)
 set(BETA_VERSION_NR 1)
 
 # ======================================================================================================================
