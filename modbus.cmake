@@ -17,7 +17,7 @@ ExternalProject_Add(
         PREFIX ${MODBUS_BIN}
         SOURCE_DIR ${MODBUS_DIR}
         DOWNLOAD_COMMAND cd ${MODBUS_DIR} && git clean -dfX
-        CONFIGURE_COMMAND cd ${MODBUS_DIR} && ${MODBUS_DIR}/autogen.sh && ${MODBUS_DIR}/configure --srcdir=${MODBUS_DIR} --prefix=${MODBUS_BIN} --enable-static=yes --disable-shared
+        CONFIGURE_COMMAND cd ${MODBUS_DIR} && && git clean -dfX && ${MODBUS_DIR}/autogen.sh && ${MODBUS_DIR}/configure --srcdir=${MODBUS_DIR} --prefix=${MODBUS_BIN} --enable-static=yes --disable-shared
         BUILD_COMMAND make
         INSTALL_COMMAND make install
         BUILD_BYPRODUCTS ${MODBUS_STATIC_LIB}
