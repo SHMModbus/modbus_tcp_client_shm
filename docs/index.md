@@ -83,7 +83,7 @@ The application is available as [modbus-tcp-client-shm](https://aur.archlinux.or
 See the [Arch Wiki](https://wiki.archlinux.org/title/Arch_User_Repository) for information about how to install AUR packages.
 
 
-### Using the Modbus Collection Flapak Package: Shared Memory Modbus (recommended)
+### Using the Modbus Collection Flatpak Package: Shared Memory Modbus (recommended)
 [SHM-Modbus](https://nikolask-source.github.io/SHM_Modbus/) is a collection of the shared memory modbus tools.
 It is available as flatpak and published on flathub as ```network.koesling.shm-modbs```.
 

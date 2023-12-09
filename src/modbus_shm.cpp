@@ -39,7 +39,7 @@ Shm_Mapping::Shm_Mapping(std::size_t        nb_bits,
     shm_data[DO] = std::make_unique<cxxshm::SharedMemory>(prefix + "DO", nb_bits, false, !force);
     shm_data[DI] = std::make_unique<cxxshm::SharedMemory>(prefix + "DI", nb_input_bits, false, !force);
     shm_data[AO] = std::make_unique<cxxshm::SharedMemory>(prefix + "AO", 2 * nb_registers, false, !force);
-    shm_data[AI] = std::make_unique<cxxshm::SharedMemory>(prefix + "AI", nb_input_registers, false, !force);
+    shm_data[AI] = std::make_unique<cxxshm::SharedMemory>(prefix + "AI", 2 * nb_input_registers, false, !force);
 
     // set shm objects as modbus register storage
     mapping.tab_bits            = static_cast<uint8_t *>(shm_data[DO]->get_addr());
