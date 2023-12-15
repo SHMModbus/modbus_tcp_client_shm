@@ -171,6 +171,14 @@ int main(int argc, char **argv) {
                          ("separate-all",
                           "like --separate, but for all client ids (creates 1028 shared memory files! "
                           "check/set 'ulimit -n' before using this option.)")
+                         ("semaphore",
+                          "protect the shared memory with a named semaphore against simultaneous access",
+                          cxxopts::value<std::string>())
+                          ("semaphore-force",
+                          "Force the use of the semaphore even if it already exists. "
+                          "Do not use this option per default! "
+                          "It should only be used if the semaphore of an improperly terminated instance continues "
+                          "to exist as an orphan and is no longer used.")
                          ("h,help",
                           "print usage")
                          ("version",
@@ -379,6 +387,16 @@ int main(int argc, char **argv) {
 
         if (args.count("byte-timeout")) { client->set_byte_timeout(args["byte-timeout"].as<double>()); }
     } catch (const std::runtime_error &e) {
+        std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
+        return EX_SOFTWARE;
+    }
+
+    // add semaphore if required
+    try {
+        if (args.count("semaphore")) {
+            client->enable_semaphore(args["semaphore"].as<std::string>(), args.count("semaphore-force"));
+        }
+    } catch (const std::system_error &e) {
         std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
         return EX_SOFTWARE;
     }

@@ -5,6 +5,8 @@
 #pragma once
 
 #include <cstddef>
+#include <cxxsemaphore.hpp>
+#include <memory>
 #include <modbus/modbus.h>
 #include <string>
 #include <sys/poll.h>
@@ -39,6 +41,8 @@ private:
     int                                  server_socket = -1;  //!< socket of the modbus connection
     std::unordered_map<int, std::string> client_addrs;
 
+    std::unique_ptr<cxxsemaphore::Semaphore> semaphore;
+
 public:
     /*! \brief create modbus client (TCP server)
      *
@@ -68,10 +72,18 @@ public:
                 std::size_t        tcp_timeout = 5,
                 std::size_t        max_clients = 1);
 
-    /*! \brief destroy the modbus client
-     *
+    /**
+     * @brief destroy the modbus client
      */
     ~Client_Poll();
+
+    /**
+     * @brief use the semaphore mechanism
+     *
+     * @param name name of the shared
+     * @param force use the semaphore even if it already exists
+     */
+    void enable_semaphore(const std::string &name, bool force = false);
 
     /*! \brief enable/disable debugging output
      *

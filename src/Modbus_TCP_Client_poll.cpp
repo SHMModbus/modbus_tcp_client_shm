@@ -21,6 +21,9 @@ namespace TCP {
 
 static constexpr int MAX_REGS = 0x10000;
 
+//* maximum time to wait for semaphore (100ms)
+static constexpr struct timespec SEMAPHORE_MAX_TIME = {0, 100'000};
+
 Client_Poll::Client_Poll(const std::string &host,
                          const std::string &service,
                          modbus_mapping_t  *mapping,
@@ -173,6 +176,12 @@ void Client_Poll::set_tcp_timeout(std::size_t tcp_timeout) {
     }
 }
 #endif
+
+void Client_Poll::enable_semaphore(const std::string &name, bool force) {
+    if (semaphore) throw std::logic_error("semaphore already enabled");
+
+    semaphore = std::make_unique<cxxsemaphore::Semaphore>(name, 1, force);
+}
 
 void Client_Poll::set_debug(bool debug) {
     if (modbus_set_debug(modbus, debug)) {
@@ -369,7 +378,14 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
                     auto mapping = mappings[CLIENT_ID];
 
                     // handle request
+                    if (semaphore) {
+                        if (!semaphore->wait(SEMAPHORE_MAX_TIME))
+                            std::cerr << Print_Time::iso << " WARNING: Failed to acquire semaphore '"
+                                      << semaphore->get_name() << "' within 100ms." << std::endl;
+                    }
                     int ret = modbus_reply(modbus, query, rc, mapping);
+                    if (semaphore && semaphore->is_acquired()) semaphore->post();
+
                     if (ret == -1) {
                         std::cerr << Print_Time::iso << " ERROR: modbus_reply failed: " << modbus_strerror(errno)
                                   << std::endl;
