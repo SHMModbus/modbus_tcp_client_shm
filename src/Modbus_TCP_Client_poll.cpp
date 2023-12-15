@@ -56,7 +56,7 @@ Client_Poll::Client_Poll(const std::string &host,
 
     // use mapping for all client ids
     for (std::size_t i = 0; i < MAX_CLIENT_IDS; ++i) {
-        this->mappings[i] = mapping;
+        this->mappings[i] = mb_mapping;
     }
 
     listen();
