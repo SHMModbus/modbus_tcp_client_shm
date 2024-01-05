@@ -171,6 +171,14 @@ int main(int argc, char **argv) {
                          ("separate-all",
                           "like --separate, but for all client ids (creates 1028 shared memory files! "
                           "check/set 'ulimit -n' before using this option.)")
+                         ("semaphore",
+                          "protect the shared memory with a named semaphore against simultaneous access",
+                          cxxopts::value<std::string>())
+                          ("semaphore-force",
+                          "Force the use of the semaphore even if it already exists. "
+                          "Do not use this option per default! "
+                          "It should only be used if the semaphore of an improperly terminated instance continues "
+                          "to exist as an orphan and is no longer used.")
                          ("h,help",
                           "print usage")
                          ("version",
@@ -383,6 +391,16 @@ int main(int argc, char **argv) {
         return EX_SOFTWARE;
     }
 
+    // add semaphore if required
+    try {
+        if (args.count("semaphore")) {
+            client->enable_semaphore(args["semaphore"].as<std::string>(), args.count("semaphore-force"));
+        }
+    } catch (const std::system_error &e) {
+        std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
+        return EX_SOFTWARE;
+    }
+
     auto RECONNECT = args.count("reconnect") != 0;
 
     std::cerr << Print_Time::iso << " INFO: Listening on " << client->get_listen_addr() << " for connections."
@@ -395,6 +413,7 @@ int main(int argc, char **argv) {
 
                 switch (ret) {
                     case Modbus::TCP::Client_Poll::run_t::ok: continue;
+                    case Modbus::TCP::Client_Poll::run_t::semaphore:
                     case Modbus::TCP::Client_Poll::run_t::term_signal: return;
                     case Modbus::TCP::Client_Poll::run_t::term_nocon:
                         std::cerr << Print_Time::iso << " INFO: No more active connections." << std::endl;
