@@ -5,6 +5,8 @@
 #pragma once
 
 #include <cstddef>
+#include <cxxsemaphore.hpp>
+#include <memory>
 #include <modbus/modbus.h>
 #include <string>
 #include <sys/poll.h>
@@ -20,13 +22,7 @@ class Client_Poll {
 public:
     static constexpr std::size_t MAX_CLIENT_IDS = 256;
 
-    enum class run_t {
-        term_signal,
-        term_nocon,
-        ok,
-        timeout,
-        interrupted,
-    };
+    enum class run_t { ok, term_signal, term_nocon, timeout, interrupted, semaphore };
 
 private:
     const std::size_t          max_clients;
@@ -38,6 +34,10 @@ private:
     modbus_mapping_t                    *delete_mapping;      //!< contains a pointer to a mapping that is to be deleted
     int                                  server_socket = -1;  //!< socket of the modbus connection
     std::unordered_map<int, std::string> client_addrs;
+
+    std::unique_ptr<cxxsemaphore::Semaphore> semaphore;
+
+    long semaphore_error_counter = 0;
 
 public:
     /*! \brief create modbus client (TCP server)
@@ -68,10 +68,18 @@ public:
                 std::size_t        tcp_timeout = 5,
                 std::size_t        max_clients = 1);
 
-    /*! \brief destroy the modbus client
-     *
+    /**
+     * @brief destroy the modbus client
      */
     ~Client_Poll();
+
+    /**
+     * @brief use the semaphore mechanism
+     *
+     * @param name name of the shared
+     * @param force use the semaphore even if it already exists
+     */
+    void enable_semaphore(const std::string &name, bool force = false);
 
     /*! \brief enable/disable debugging output
      *
