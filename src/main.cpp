@@ -413,6 +413,7 @@ int main(int argc, char **argv) {
 
                 switch (ret) {
                     case Modbus::TCP::Client_Poll::run_t::ok: continue;
+                    case Modbus::TCP::Client_Poll::run_t::semaphore:
                     case Modbus::TCP::Client_Poll::run_t::term_signal: return;
                     case Modbus::TCP::Client_Poll::run_t::term_nocon:
                         std::cerr << Print_Time::iso << " INFO: No more active connections." << std::endl;

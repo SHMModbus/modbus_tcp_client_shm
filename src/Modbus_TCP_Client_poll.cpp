@@ -19,7 +19,17 @@
 namespace Modbus {
 namespace TCP {
 
+//* maximum number of Modbus registers (per type)
 static constexpr int MAX_REGS = 0x10000;
+
+//* value to increment error counter if semaphore could not be acquired
+static constexpr long SEMAPHORE_ERROR_INC = 10;
+
+//* value to decrement error counter if semaphore could be acquired
+static constexpr long SEMAPHORE_ERROR_DEC = 1;
+
+//* maximum value of semaphore error counter
+static constexpr long SEMAPHORE_ERROR_MAX = 1000;
 
 //* maximum time to wait for semaphore (100ms)
 static constexpr struct timespec SEMAPHORE_MAX_TIME = {0, 100'000};
@@ -379,10 +389,24 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
 
                     // handle request
                     if (semaphore) {
-                        if (!semaphore->wait(SEMAPHORE_MAX_TIME))
+                        if (!semaphore->wait(SEMAPHORE_MAX_TIME)) {
                             std::cerr << Print_Time::iso << " WARNING: Failed to acquire semaphore '"
                                       << semaphore->get_name() << "' within 100ms." << std::endl;
+
+                            semaphore_error_counter += SEMAPHORE_ERROR_INC;
+
+                            if (semaphore_error_counter >= SEMAPHORE_ERROR_MAX) {
+                                std::cerr << Print_Time::iso << "ERROR: Repeatedly failed to acquire the semaphore"
+                                          << std::endl;
+                                close_con(client_addrs);
+                                return run_t::semaphore;
+                            }
+                        } else {
+                            semaphore_error_counter -= SEMAPHORE_ERROR_DEC;
+                            if (semaphore_error_counter < 0) semaphore_error_counter = 0;
+                        }
                     }
+
                     int ret = modbus_reply(modbus, query, rc, mapping);
                     if (semaphore && semaphore->is_acquired()) semaphore->post();
 

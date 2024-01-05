@@ -22,13 +22,7 @@ class Client_Poll {
 public:
     static constexpr std::size_t MAX_CLIENT_IDS = 256;
 
-    enum class run_t {
-        term_signal,
-        term_nocon,
-        ok,
-        timeout,
-        interrupted,
-    };
+    enum class run_t { ok, term_signal, term_nocon, timeout, interrupted, semaphore };
 
 private:
     const std::size_t          max_clients;
@@ -42,6 +36,8 @@ private:
     std::unordered_map<int, std::string> client_addrs;
 
     std::unique_ptr<cxxsemaphore::Semaphore> semaphore;
+
+    long semaphore_error_counter = 0;
 
 public:
     /*! \brief create modbus client (TCP server)
