@@ -58,8 +58,8 @@ public:
                 std::size_t        nb_input_bits,
                 std::size_t        nb_registers,
                 std::size_t        nb_input_registers,
-                const std::string &shm_name_prefix = "modbus_",
-                bool               force           = false);
+                const std::string &shm_name_prefix,
+                bool               force);
 
     ~Shm_Mapping() = default;
 
