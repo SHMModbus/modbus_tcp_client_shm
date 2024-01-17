@@ -171,6 +171,9 @@ int main(int argc, char **argv) {
                           "Do not use this option per default! "
                           "It should only be used if the semaphore of an improperly terminated instance continues "
                           "to exist as an orphan and is no longer used.");
+    options.add_options()("b,permissions",
+                          "permission bits that are applied when creating a shared memory.",
+                          cxxopts::value<std::string>()->default_value("0640"));
     options.add_options()("h,help", "print usage");
     options.add_options()("version", "print version information");
     options.add_options()("license", "show licences");
@@ -262,6 +265,23 @@ int main(int argc, char **argv) {
 
     const auto FORCE_SHM = args.count("force") > 0;
 
+    mode_t shm_permissions = 0660;
+    {
+        const auto  shm_permissions_str = args["permissions"].as<std::string>();
+        bool        fail                = false;
+        std::size_t idx                 = 0;
+        try {
+            shm_permissions = std::stoul(shm_permissions_str, &idx, 0);
+        } catch (const std::exception &) { fail = true; }
+        fail = fail || idx != shm_permissions_str.size();
+
+        if (fail || (~static_cast<mode_t>(0x1FF) & shm_permissions) != 0) {
+            std::cerr << Print_Time::iso << " ERROR: Invalid file permissions \"" << shm_permissions_str << '"'
+                      << std::endl;
+            return EX_USAGE;
+        }
+    }
+
     // check ulimit
     std::size_t min_files =
             CONNECTIONS + 5;  // number of connections + stderr + stdout + stdin + signal_fd + server socket
@@ -291,7 +311,8 @@ int main(int argc, char **argv) {
                                                                           args["ao-registers"].as<std::size_t>(),
                                                                           args["ai-registers"].as<std::size_t>(),
                                                                           args["name-prefix"].as<std::string>(),
-                                                                          FORCE_SHM);
+                                                                          FORCE_SHM,
+                                                                          shm_permissions);
         } catch (const std::system_error &e) {
             std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
             return EX_OSERR;
@@ -313,7 +334,8 @@ int main(int argc, char **argv) {
                                                                    args["ao-registers"].as<std::size_t>(),
                                                                    args["ai-registers"].as<std::size_t>(),
                                                                    sstr.str(),
-                                                                   FORCE_SHM));
+                                                                   FORCE_SHM,
+                                                                   shm_permissions));
                 mb_mappings[i] = separate_mappings.back()->get_mapping();
             } catch (const std::system_error &e) {
                 std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
@@ -340,7 +362,8 @@ int main(int argc, char **argv) {
                                                                    args["ao-registers"].as<std::size_t>(),
                                                                    args["ai-registers"].as<std::size_t>(),
                                                                    sstr.str(),
-                                                                   FORCE_SHM));
+                                                                   FORCE_SHM,
+                                                                   shm_permissions));
                 mb_mappings[a] = separate_mappings.back()->get_mapping();
             } catch (const std::system_error &e) {
                 std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;

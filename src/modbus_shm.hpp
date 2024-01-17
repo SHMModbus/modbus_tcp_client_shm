@@ -53,13 +53,15 @@ public:
      * @param nb_input_registers number of analog input registers (AI)
      * @param shm_name_prefix name prefix of the created shared memory object
      * @param force do not fail if the shared memory exist, but use the existing shared memory
+     * @param permissions shared memory file permissions
      */
     Shm_Mapping(std::size_t        nb_bits,
                 std::size_t        nb_input_bits,
                 std::size_t        nb_registers,
                 std::size_t        nb_input_registers,
                 const std::string &shm_name_prefix,
-                bool               force);
+                bool               force,
+                mode_t             permissions);
 
     ~Shm_Mapping() = default;
 

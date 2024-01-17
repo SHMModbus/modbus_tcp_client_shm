@@ -19,7 +19,8 @@ Shm_Mapping::Shm_Mapping(std::size_t        nb_bits,
                          std::size_t        nb_registers,
                          std::size_t        nb_input_registers,
                          const std::string &prefix,
-                         bool               force) {
+                         bool               force,
+                         mode_t             permissions) {
     // check argument ranges
     if (nb_bits > 0x10000 || !nb_bits) throw std::invalid_argument("invalid number of digital output registers.");
     if (nb_input_bits > 0x10000 || !nb_input_bits)
@@ -36,10 +37,11 @@ Shm_Mapping::Shm_Mapping(std::size_t        nb_bits,
     mapping.nb_input_registers = static_cast<int>(nb_input_registers);
 
     // create shm objects
-    shm_data[DO] = std::make_unique<cxxshm::SharedMemory>(prefix + "DO", nb_bits, false, !force);
-    shm_data[DI] = std::make_unique<cxxshm::SharedMemory>(prefix + "DI", nb_input_bits, false, !force);
-    shm_data[AO] = std::make_unique<cxxshm::SharedMemory>(prefix + "AO", 2 * nb_registers, false, !force);
-    shm_data[AI] = std::make_unique<cxxshm::SharedMemory>(prefix + "AI", 2 * nb_input_registers, false, !force);
+    shm_data[DO] = std::make_unique<cxxshm::SharedMemory>(prefix + "DO", nb_bits, false, !force, permissions);
+    shm_data[DI] = std::make_unique<cxxshm::SharedMemory>(prefix + "DI", nb_input_bits, false, !force, permissions);
+    shm_data[AO] = std::make_unique<cxxshm::SharedMemory>(prefix + "AO", 2 * nb_registers, false, !force, permissions);
+    shm_data[AI] =
+            std::make_unique<cxxshm::SharedMemory>(prefix + "AI", 2 * nb_input_registers, false, !force, permissions);
 
     // set shm objects as modbus register storage
     mapping.tab_bits            = static_cast<uint8_t *>(shm_data[DO]->get_addr());
