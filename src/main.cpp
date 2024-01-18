@@ -204,6 +204,7 @@ int main(int argc, char **argv) {
         std::cout << "  - cxxopts by jarro2783 (https://github.com/jarro2783/cxxopts)" << std::endl;
         std::cout << "  - libmodbus by Stéphane Raimbault (https://github.com/stephane/libmodbus)" << std::endl;
         std::cout << "  - cxxshm (https://github.com/NikolasK-source/cxxshm)" << std::endl;
+        std::cout << "  - cxxsemaphore (https://github.com/NikolasK-source/cxxsemaphore)" << std::endl;
         return EX_OK;
     }
 
