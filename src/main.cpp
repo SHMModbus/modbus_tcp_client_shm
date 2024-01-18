@@ -110,82 +110,73 @@ int main(int argc, char **argv) {
 #endif
 
     // all command line arguments
-    // clang-format off
-    options.add_options()("i,host",
-                          "host to listen for incoming connections",
-                          cxxopts::value<std::string>()->default_value("any"))
-                         ("p,service",
+    options.add_options()(
+            "i,host", "host to listen for incoming connections", cxxopts::value<std::string>()->default_value("any"));
+    options.add_options()("p,service",
                           "service or port to listen for incoming connections",
-                          cxxopts::value<std::string>()->default_value("502"))
-                         ("n,name-prefix",
-                          "shared memory name prefix",
-                          cxxopts::value<std::string>()->default_value("modbus_"))
-                         ("do-registers",
+                          cxxopts::value<std::string>()->default_value("502"));
+    options.add_options()(
+            "n,name-prefix", "shared memory name prefix", cxxopts::value<std::string>()->default_value("modbus_"));
+    options.add_options()("do-registers",
                           "number of digital output registers",
-                          cxxopts::value<std::size_t>()->default_value("65536"))
-                         ("di-registers",
-                          "number of digital input registers",
-                          cxxopts::value<std::size_t>()->default_value("65536"))
-                         ("ao-registers",
-                          "number of analog output registers",
-                          cxxopts::value<std::size_t>()->default_value("65536"))
-                         ("ai-registers",
-                          "number of analog input registers",
-                          cxxopts::value<std::size_t>()->default_value("65536"))
-                         ("m,monitor",
-                          "output all incoming and outgoing packets to stdout")
-                         ("c,connections",
+                          cxxopts::value<std::size_t>()->default_value("65536"));
+    options.add_options()(
+            "di-registers", "number of digital input registers", cxxopts::value<std::size_t>()->default_value("65536"));
+    options.add_options()(
+            "ao-registers", "number of analog output registers", cxxopts::value<std::size_t>()->default_value("65536"));
+    options.add_options()(
+            "ai-registers", "number of analog input registers", cxxopts::value<std::size_t>()->default_value("65536"));
+    options.add_options()("m,monitor", "output all incoming and outgoing packets to stdout");
+    options.add_options()("c,connections",
                           "number of allowed simultaneous Modbus Server connections.",
-                          cxxopts::value<std::size_t>()->default_value("1"))
-                         ("r,reconnect",
-                          "do not terminate if no Modbus Server is connected anymore.")
-                         ("byte-timeout",
+                          cxxopts::value<std::size_t>()->default_value("1"));
+    options.add_options()("r,reconnect", "do not terminate if no Modbus Server is connected anymore.");
+    options.add_options()("byte-timeout",
                           "timeout interval in seconds between two consecutive bytes of the same message. "
-                           "In most cases it is sufficient to set the response timeout. "
-                           "Fractional values are possible.",
-                          cxxopts::value<double>())
-                         ("response-timeout",
+                          "In most cases it is sufficient to set the response timeout. "
+                          "Fractional values are possible.",
+                          cxxopts::value<double>());
+    options.add_options()("response-timeout",
                           "set the timeout interval in seconds used to wait for a response. "
                           "When a byte timeout is set, if the elapsed time for the first byte of response is longer "
                           "than the given timeout, a timeout is detected. "
                           "When byte timeout is disabled, the full confirmation response must be received before "
                           "expiration of the response timeout. "
                           "Fractional values are possible.",
-                          cxxopts::value<double>())
+                          cxxopts::value<double>());
 #ifdef OS_LINUX
-                         ("t,tcp-timeout",
+    options.add_options()("t,tcp-timeout",
                           "tcp timeout in seconds. Set to 0 to use the system defaults (not recommended).",
-                          cxxopts::value<std::size_t>()->default_value("5"))
+                          cxxopts::value<std::size_t>()->default_value("5"));
 #endif
-                         ("force",
+    options.add_options()("force",
                           "Force the use of the shared memory even if it already exists. "
                           "Do not use this option per default! "
                           "It should only be used if the shared memory of an improperly terminated instance continues "
-                          "to exist as an orphan and is no longer used.")
-                         ("s,separate",
+                          "to exist as an orphan and is no longer used.");
+    options.add_options()("s,separate",
                           "Use a separate shared memory for requests with the specified client id. "
                           "The client id (as hex value) is appended to the shared memory prefix (e.g. modbus_fc_DO)"
                           ". You can specify multiple client ids by separating them with ','. "
                           "Use --separate-all to generate separate shared memories for all possible client ids.",
-                          cxxopts::value<std::vector<std::uint8_t>>())
-                         ("separate-all",
+                          cxxopts::value<std::vector<std::uint8_t>>());
+    options.add_options()("separate-all",
                           "like --separate, but for all client ids (creates 1028 shared memory files! "
-                          "check/set 'ulimit -n' before using this option.)")
-                         ("semaphore",
+                          "check/set 'ulimit -n' before using this option.)");
+    options.add_options()("semaphore",
                           "protect the shared memory with a named semaphore against simultaneous access",
-                          cxxopts::value<std::string>())
-                          ("semaphore-force",
+                          cxxopts::value<std::string>());
+    options.add_options()("semaphore-force",
                           "Force the use of the semaphore even if it already exists. "
                           "Do not use this option per default! "
                           "It should only be used if the semaphore of an improperly terminated instance continues "
-                          "to exist as an orphan and is no longer used.")
-                         ("h,help",
-                          "print usage")
-                         ("version",
-                          "print version information")
-                         ("license",
-                          "show licences");
-    // clang-format on
+                          "to exist as an orphan and is no longer used.");
+    options.add_options()("b,permissions",
+                          "permission bits that are applied when creating a shared memory.",
+                          cxxopts::value<std::string>()->default_value("0640"));
+    options.add_options()("h,help", "print usage");
+    options.add_options()("version", "print version information");
+    options.add_options()("license", "show licences");
 
     // parse arguments
     cxxopts::ParseResult args;
@@ -213,6 +204,7 @@ int main(int argc, char **argv) {
         std::cout << "  - cxxopts by jarro2783 (https://github.com/jarro2783/cxxopts)" << std::endl;
         std::cout << "  - libmodbus by Stéphane Raimbault (https://github.com/stephane/libmodbus)" << std::endl;
         std::cout << "  - cxxshm (https://github.com/NikolasK-source/cxxshm)" << std::endl;
+        std::cout << "  - cxxsemaphore (https://github.com/NikolasK-source/cxxsemaphore)" << std::endl;
         return EX_OK;
     }
 
@@ -274,6 +266,23 @@ int main(int argc, char **argv) {
 
     const auto FORCE_SHM = args.count("force") > 0;
 
+    mode_t shm_permissions = 0660;
+    {
+        const auto  shm_permissions_str = args["permissions"].as<std::string>();
+        bool        fail                = false;
+        std::size_t idx                 = 0;
+        try {
+            shm_permissions = std::stoul(shm_permissions_str, &idx, 0);
+        } catch (const std::exception &) { fail = true; }
+        fail = fail || idx != shm_permissions_str.size();
+
+        if (fail || (~static_cast<mode_t>(0x1FF) & shm_permissions) != 0) {
+            std::cerr << Print_Time::iso << " ERROR: Invalid file permissions \"" << shm_permissions_str << '"'
+                      << std::endl;
+            return EX_USAGE;
+        }
+    }
+
     // check ulimit
     std::size_t min_files =
             CONNECTIONS + 5;  // number of connections + stderr + stdout + stdin + signal_fd + server socket
@@ -303,7 +312,8 @@ int main(int argc, char **argv) {
                                                                           args["ao-registers"].as<std::size_t>(),
                                                                           args["ai-registers"].as<std::size_t>(),
                                                                           args["name-prefix"].as<std::string>(),
-                                                                          FORCE_SHM);
+                                                                          FORCE_SHM,
+                                                                          shm_permissions);
         } catch (const std::system_error &e) {
             std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
             return EX_OSERR;
@@ -325,7 +335,8 @@ int main(int argc, char **argv) {
                                                                    args["ao-registers"].as<std::size_t>(),
                                                                    args["ai-registers"].as<std::size_t>(),
                                                                    sstr.str(),
-                                                                   FORCE_SHM));
+                                                                   FORCE_SHM,
+                                                                   shm_permissions));
                 mb_mappings[i] = separate_mappings.back()->get_mapping();
             } catch (const std::system_error &e) {
                 std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
@@ -352,7 +363,8 @@ int main(int argc, char **argv) {
                                                                    args["ao-registers"].as<std::size_t>(),
                                                                    args["ai-registers"].as<std::size_t>(),
                                                                    sstr.str(),
-                                                                   FORCE_SHM));
+                                                                   FORCE_SHM,
+                                                                   shm_permissions));
                 mb_mappings[a] = separate_mappings.back()->get_mapping();
             } catch (const std::system_error &e) {
                 std::cerr << Print_Time::iso << " ERROR: " << e.what() << std::endl;
