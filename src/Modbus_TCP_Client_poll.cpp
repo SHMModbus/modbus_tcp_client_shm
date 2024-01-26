@@ -222,7 +222,7 @@ void Client_Poll::set_byte_timeout(double timeout) {
 
     if (ret != 0) {
         const std::string error_msg = modbus_strerror(errno);
-        throw std::runtime_error("modbus_receive failed: " + error_msg + ' ' + std::to_string(errno));
+        throw std::runtime_error("modbus_set_byte_timeout failed: " + error_msg + ' ' + std::to_string(errno));
     }
 }
 
@@ -232,7 +232,7 @@ void Client_Poll::set_response_timeout(double timeout) {
 
     if (ret != 0) {
         const std::string error_msg = modbus_strerror(errno);
-        throw std::runtime_error("modbus_receive failed: " + error_msg + ' ' + std::to_string(errno));
+        throw std::runtime_error("modbus_set_response_timeout failed: " + error_msg + ' ' + std::to_string(errno));
     }
 }
 
