@@ -11,4 +11,4 @@
  * \brief print licences
  * @param o output stream used to print licenses
  */
-void print_licenses(std::ostream &o);
+void print_licenses(std::ostream &o, bool full);

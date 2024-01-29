@@ -176,7 +176,8 @@ int main(int argc, char **argv) {
                           cxxopts::value<std::string>()->default_value("0640"));
     options.add_options()("h,help", "print usage");
     options.add_options()("version", "print version information");
-    options.add_options()("license", "show licences");
+    options.add_options()("license", "show licences (short)");
+    options.add_options()("license-full", "show licences (full license text)");
 
     // parse arguments
     cxxopts::ParseResult args;
@@ -221,7 +222,12 @@ int main(int argc, char **argv) {
 
     // print licenses
     if (args.count("license")) {
-        print_licenses(std::cout);
+        print_licenses(std::cout, false);
+        return EX_OK;
+    }
+
+    if (args.count("license-full")) {
+        print_licenses(std::cout, true);
         return EX_OK;
     }
 
