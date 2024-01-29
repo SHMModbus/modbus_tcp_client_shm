@@ -28,6 +28,8 @@ private:
     const std::size_t          max_clients;
     std::vector<struct pollfd> poll_fds;
 
+    bool debug = false;  //!< modbus debugging enabled
+
     modbus_t *modbus;  //!< modbus object (see libmodbus library)
     modbus_mapping_t
             *mappings[MAX_CLIENT_IDS];  //!< modbus data objects (one per possible client id) (see libmodbus library)
