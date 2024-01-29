@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.13.4 FATAL_ERROR)
 # ======================================================================================================================
 
 # project
-project(Modbus_TCP_client_shm LANGUAGES CXX VERSION 1.5.0)
+project(Modbus_TCP_client_shm LANGUAGES CXX VERSION 1.5.2)
 
 # settings
 set(Target "modbus-tcp-client-shm")    # Executable name (without file extension!)

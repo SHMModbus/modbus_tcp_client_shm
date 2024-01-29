@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2022 Nikolas Koesling <nikolas@koesling.info>.
- * This program is free software. You can redistribute it and/or modify it under the terms of the MIT License.
+ * This program is free software. You can redistribute it and/or modify it under the terms of the GPLv3 License.
  */
 #pragma once
 
@@ -27,6 +27,8 @@ public:
 private:
     const std::size_t          max_clients;
     std::vector<struct pollfd> poll_fds;
+
+    bool debug = false;  //!< modbus debugging enabled
 
     modbus_t *modbus;  //!< modbus object (see libmodbus library)
     modbus_mapping_t

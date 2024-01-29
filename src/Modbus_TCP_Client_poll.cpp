@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2022 Nikolas Koesling <nikolas@koesling.info>.
- * This program is free software. You can redistribute it and/or modify it under the terms of the MIT License.
+ * This program is free software. You can redistribute it and/or modify it under the terms of the GPLv3 License.
  */
 
 #include "Modbus_TCP_Client_poll.hpp"
@@ -198,6 +198,8 @@ void Client_Poll::set_debug(bool debug) {
         const std::string error_msg = modbus_strerror(errno);
         throw std::runtime_error("failed to enable modbus debugging mode: " + error_msg);
     }
+
+    this->debug = debug;
 }
 
 struct timeout_t {
@@ -222,7 +224,7 @@ void Client_Poll::set_byte_timeout(double timeout) {
 
     if (ret != 0) {
         const std::string error_msg = modbus_strerror(errno);
-        throw std::runtime_error("modbus_receive failed: " + error_msg + ' ' + std::to_string(errno));
+        throw std::runtime_error("modbus_set_byte_timeout failed: " + error_msg + ' ' + std::to_string(errno));
     }
 }
 
@@ -232,7 +234,7 @@ void Client_Poll::set_response_timeout(double timeout) {
 
     if (ret != 0) {
         const std::string error_msg = modbus_strerror(errno);
-        throw std::runtime_error("modbus_receive failed: " + error_msg + ' ' + std::to_string(errno));
+        throw std::runtime_error("modbus_set_response_timeout failed: " + error_msg + ' ' + std::to_string(errno));
     }
 }
 
@@ -380,6 +382,7 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
 
                 uint8_t query[MODBUS_TCP_MAX_ADU_LENGTH];
                 int     rc = modbus_receive(modbus, query);
+                if (debug) std::cout.flush();
 
                 if (rc > 0) {
                     const auto CLIENT_ID = query[6];
@@ -409,6 +412,7 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
 
                     int ret = modbus_reply(modbus, query, rc, mapping);
                     if (semaphore && semaphore->is_acquired()) semaphore->post();
+                    if (debug) std::cout.flush();
 
                     if (ret == -1) {
                         std::cerr << Print_Time::iso << " ERROR: modbus_reply failed: " << modbus_strerror(errno)
