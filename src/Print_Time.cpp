@@ -5,14 +5,15 @@
 
 #include "Print_Time.hpp"
 
+#include <array>
 #include <ctime>
 
 Print_Time Print_Time::iso("%F_%T");
 
 std::ostream &operator<<(std::ostream &o, const Print_Time &p) {
-    auto now = time(nullptr);
-    char buf[sizeof "1234-25-78T90:12:34Z"];
-    strftime(buf, sizeof buf, p.format.c_str(), gmtime(&now));
-    o << buf;
+    auto                                            now = time(nullptr);
+    std::array<char, sizeof "1234-25-78T90:12:34Z"> buf {};
+    strftime(buf.data(), buf.size(), p.format.c_str(), gmtime(&now));
+    o << buf.data();
     return o;
 }

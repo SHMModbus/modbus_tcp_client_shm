@@ -5,29 +5,27 @@
 
 #include "modbus_shm.hpp"
 
-#include <fcntl.h>
 #include <stdexcept>
-#include <sys/mman.h>
-#include <system_error>
-#include <unistd.h>
 
-namespace Modbus {
-namespace shm {
+namespace Modbus::shm {
 
-Shm_Mapping::Shm_Mapping(std::size_t        nb_bits,
-                         std::size_t        nb_input_bits,
-                         std::size_t        nb_registers,
-                         std::size_t        nb_input_registers,
+static constexpr std::size_t MAX_MODBUS_REGISTERS = 0x10000;
+
+Shm_Mapping::Shm_Mapping(std::size_t        nb_bits,             // NOLINT
+                         std::size_t        nb_input_bits,       // NOLINT
+                         std::size_t        nb_registers,        // NOLINT
+                         std::size_t        nb_input_registers,  // NOLINT
                          const std::string &prefix,
                          bool               force,
                          mode_t             permissions) {
     // check argument ranges
-    if (nb_bits > 0x10000 || !nb_bits) throw std::invalid_argument("invalid number of digital output registers.");
-    if (nb_input_bits > 0x10000 || !nb_input_bits)
+    if (nb_bits > MAX_MODBUS_REGISTERS || !nb_bits)
+        throw std::invalid_argument("invalid number of digital output registers.");
+    if (nb_input_bits > MAX_MODBUS_REGISTERS || !nb_input_bits)
         throw std::invalid_argument("invalid number of digital input registers.");
-    if (nb_registers > 0x10000 || !nb_registers)
+    if (nb_registers > MAX_MODBUS_REGISTERS || !nb_registers)
         throw std::invalid_argument("invalid number of analog output registers.");
-    if (nb_input_registers > 0x10000 || !nb_input_registers)
+    if (nb_input_registers > MAX_MODBUS_REGISTERS || !nb_input_registers)
         throw std::invalid_argument("invalid number of analog input registers.");
 
     // set register count
@@ -50,5 +48,4 @@ Shm_Mapping::Shm_Mapping(std::size_t        nb_bits,
     mapping.tab_input_registers = static_cast<uint16_t *>(shm_data[AI]->get_addr());
 }
 
-}  // namespace shm
-}  // namespace Modbus
+}  // namespace Modbus::shm
