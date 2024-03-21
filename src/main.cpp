@@ -14,6 +14,7 @@
 #include <csignal>
 #include <filesystem>
 #include <iostream>
+#include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/signalfd.h>
 #include <sysexits.h>
@@ -200,6 +201,16 @@ int main(int argc, char **argv) {
     // print usage
     if (args.count("help")) {
         options.set_width(HELP_WIDTH);
+#ifdef OS_LINUX
+        if (isatty(STDIN_FILENO)) {
+            struct winsize w {};
+            if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) != -1) {  // NOLINT
+                static constexpr auto MIN_TTY_SIZE = static_cast<decltype(w.ws_col)>(80);
+                options.set_width(std::max(MIN_TTY_SIZE, w.ws_col));
+            }
+        }
+#endif
+
         std::cout << options.help() << '\n';
         std::cout << '\n';
         std::cout << "The modbus registers are mapped to shared memory objects:" << '\n';
