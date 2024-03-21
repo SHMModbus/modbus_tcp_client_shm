@@ -3,6 +3,12 @@
  * This program is free software. You can redistribute it and/or modify it under the terms of the GPLv3 License.
  */
 
+#include "Modbus_TCP_Client_poll.hpp"
+#include "Print_Time.hpp"
+#include "generated/version_info.hpp"
+#include "license.hpp"
+#include "modbus_shm.hpp"
+
 #include <atomic>
 #include <condition_variable>
 #include <csignal>
@@ -32,12 +38,6 @@
 #elif defined(COMPILER_GCC)
 #    pragma GCC diagnostic pop
 #endif
-
-#include "Modbus_TCP_Client_poll.hpp"
-#include "Print_Time.hpp"
-#include "license.hpp"
-#include "modbus_shm.hpp"
-
 
 //! Maximum number of registers per type
 static constexpr size_t MODBUS_MAX_REGS = 0x10000;
@@ -111,74 +111,82 @@ int main(int argc, char **argv) {
 #endif
 
     // all command line arguments
-    options.add_options()(
+    options.add_options("network")(
             "i,host", "host to listen for incoming connections", cxxopts::value<std::string>()->default_value("any"));
-    options.add_options()("p,service",
-                          "service or port to listen for incoming connections",
-                          cxxopts::value<std::string>()->default_value("502"));
-    options.add_options()(
+    options.add_options("network")("p,service",
+                                   "service or port to listen for incoming connections",
+                                   cxxopts::value<std::string>()->default_value("502"));
+    options.add_options("shared memory")(
             "n,name-prefix", "shared memory name prefix", cxxopts::value<std::string>()->default_value("modbus_"));
-    options.add_options()("do-registers",
-                          "number of digital output registers",
-                          cxxopts::value<std::size_t>()->default_value("65536"));
-    options.add_options()(
+    options.add_options("modbus")("do-registers",
+                                  "number of digital output registers",
+                                  cxxopts::value<std::size_t>()->default_value("65536"));
+    options.add_options("modbus")(
             "di-registers", "number of digital input registers", cxxopts::value<std::size_t>()->default_value("65536"));
-    options.add_options()(
+    options.add_options("modbus")(
             "ao-registers", "number of analog output registers", cxxopts::value<std::size_t>()->default_value("65536"));
-    options.add_options()(
+    options.add_options("modbus")(
             "ai-registers", "number of analog input registers", cxxopts::value<std::size_t>()->default_value("65536"));
-    options.add_options()("m,monitor", "output all incoming and outgoing packets to stdout");
-    options.add_options()("c,connections",
-                          "number of allowed simultaneous Modbus Server connections.",
-                          cxxopts::value<std::size_t>()->default_value("1"));
-    options.add_options()("r,reconnect", "do not terminate if no Modbus Server is connected anymore.");
-    options.add_options()("byte-timeout",
-                          "timeout interval in seconds between two consecutive bytes of the same message. "
-                          "In most cases it is sufficient to set the response timeout. "
-                          "Fractional values are possible.",
-                          cxxopts::value<double>());
-    options.add_options()("response-timeout",
-                          "set the timeout interval in seconds used to wait for a response. "
-                          "When a byte timeout is set, if the elapsed time for the first byte of response is longer "
-                          "than the given timeout, a timeout is detected. "
-                          "When byte timeout is disabled, the full confirmation response must be received before "
-                          "expiration of the response timeout. "
-                          "Fractional values are possible.",
-                          cxxopts::value<double>());
+    options.add_options("modbus")("m,monitor", "output all incoming and outgoing packets to stdout");
+    options.add_options("network")("c,connections",
+                                   "number of allowed simultaneous Modbus Server connections.",
+                                   cxxopts::value<std::size_t>()->default_value("1"));
+    options.add_options("network")("r,reconnect", "do not terminate if no Modbus Server is connected anymore.");
+    options.add_options("modbus")("byte-timeout",
+                                  "timeout interval in seconds between two consecutive bytes of the same message. "
+                                  "In most cases it is sufficient to set the response timeout. "
+                                  "Fractional values are possible.",
+                                  cxxopts::value<double>());
+    options.add_options("modbus")(
+            "response-timeout",
+            "set the timeout interval in seconds used to wait for a response. "
+            "When a byte timeout is set, if the elapsed time for the first byte of response is longer "
+            "than the given timeout, a timeout is detected. "
+            "When byte timeout is disabled, the full confirmation response must be received before "
+            "expiration of the response timeout. "
+            "Fractional values are possible.",
+            cxxopts::value<double>());
 #ifdef OS_LINUX
-    options.add_options()("t,tcp-timeout",
-                          "tcp timeout in seconds. Set to 0 to use the system defaults (not recommended).",
-                          cxxopts::value<std::size_t>()->default_value("5"));
+    options.add_options("network")("t,tcp-timeout",
+                                   "tcp timeout in seconds. Set to 0 to use the system defaults (not recommended).",
+                                   cxxopts::value<std::size_t>()->default_value("5"));
 #endif
-    options.add_options()("force",
-                          "Force the use of the shared memory even if it already exists. "
-                          "Do not use this option per default! "
-                          "It should only be used if the shared memory of an improperly terminated instance continues "
-                          "to exist as an orphan and is no longer used.");
-    options.add_options()("s,separate",
-                          "Use a separate shared memory for requests with the specified client id. "
-                          "The client id (as hex value) is appended to the shared memory prefix (e.g. modbus_fc_DO)"
-                          ". You can specify multiple client ids by separating them with ','. "
-                          "Use --separate-all to generate separate shared memories for all possible client ids.",
-                          cxxopts::value<std::vector<std::uint8_t>>());
-    options.add_options()("separate-all",
-                          "like --separate, but for all client ids (creates 1028 shared memory files! "
-                          "check/set 'ulimit -n' before using this option.)");
-    options.add_options()("semaphore",
-                          "protect the shared memory with a named semaphore against simultaneous access",
-                          cxxopts::value<std::string>());
-    options.add_options()("semaphore-force",
-                          "Force the use of the semaphore even if it already exists. "
-                          "Do not use this option per default! "
-                          "It should only be used if the semaphore of an improperly terminated instance continues "
-                          "to exist as an orphan and is no longer used.");
-    options.add_options()("b,permissions",
-                          "permission bits that are applied when creating a shared memory.",
-                          cxxopts::value<std::string>()->default_value("0640"));
-    options.add_options()("h,help", "print usage");
-    options.add_options()("version", "print version information");
-    options.add_options()("license", "show licences (short)");
-    options.add_options()("license-full", "show licences (full license text)");
+    options.add_options("shared memory")(
+            "force",
+            "Force the use of the shared memory even if it already exists. "
+            "Do not use this option per default! "
+            "It should only be used if the shared memory of an improperly terminated instance continues "
+            "to exist as an orphan and is no longer used.");
+    options.add_options("shared memory")(
+            "s,separate",
+            "Use a separate shared memory for requests with the specified client id. "
+            "The client id (as hex value) is appended to the shared memory prefix (e.g. modbus_fc_DO)"
+            ". You can specify multiple client ids by separating them with ','. "
+            "Use --separate-all to generate separate shared memories for all possible client ids.",
+            cxxopts::value<std::vector<std::uint8_t>>());
+    options.add_options("shared memory")("separate-all",
+                                         "like --separate, but for all client ids (creates 1028 shared memory files! "
+                                         "check/set 'ulimit -n' before using this option.)");
+    options.add_options("shared memory")("semaphore",
+                                         "protect the shared memory with a named semaphore against simultaneous access",
+                                         cxxopts::value<std::string>());
+    options.add_options("shared memory")(
+            "semaphore-force",
+            "Force the use of the semaphore even if it already exists. "
+            "Do not use this option per default! "
+            "It should only be used if the semaphore of an improperly terminated instance continues "
+            "to exist as an orphan and is no longer used.");
+    options.add_options("shared memory")("b,permissions",
+                                         "permission bits that are applied when creating a shared memory.",
+                                         cxxopts::value<std::string>()->default_value("0640"));
+    options.add_options("other")("h,help", "print usage");
+    options.add_options("version information")("version", "print version and exit");
+    options.add_options("version information")("longversion",
+                                               "print version (including compiler and system info) and exit");
+    options.add_options("version information")("shortversion", "print version (only version string) and exit");
+    options.add_options("version information")("git-hash", "print git hash");
+    options.add_options("other")("license", "show licences (short)");
+    options.add_options("other")("license-full", "show licences (full license text)");
 
     // parse arguments
     cxxopts::ParseResult args;
@@ -210,14 +218,41 @@ int main(int argc, char **argv) {
         return EX_OK;
     }
 
-    // print usage
-    if (args.count("version")) {
+    // print version
+    if (args.count("longversion")) {
         std::cout << PROJECT_NAME << ' ' << PROJECT_VERSION << " (compiled with " << COMPILER_INFO << " on "
                   << SYSTEM_INFO << ')'
 #ifndef OS_LINUX
                   << "-nonlinux"
 #endif
                   << '\n';
+        return EX_OK;
+    }
+
+    if (args.count("shortversion")) {
+        std::cout << PROJECT_VERSION << '\n';
+        return EX_OK;
+    }
+
+    if (args.count("version")) {
+        std::cout << PROJECT_NAME << ' ' << PROJECT_VERSION << '\n';
+        return EX_OK;
+    }
+
+    if (args.count("longversion")) {
+        std::cout << PROJECT_NAME << ' ' << PROJECT_VERSION << '\n';
+        std::cout << "   compiled with " << COMPILER_INFO << '\n';
+        std::cout << "   on system " << SYSTEM_INFO
+#ifndef OS_LINUX
+                  << "-nonlinux"
+#endif
+                  << '\n';
+        std::cout << "   from git commit " << RCS_HASH << '\n';
+        return EX_OK;
+    }
+
+    if (args.count("git-hash")) {
+        std::cout << RCS_HASH << '\n';
         return EX_OK;
     }
 
