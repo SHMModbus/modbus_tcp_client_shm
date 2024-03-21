@@ -465,5 +465,6 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
-
+src/generated/version_info.cpp
+src/generated/version_info.hpp
 !network.koesling.modbus-tcp-client-shm.yml

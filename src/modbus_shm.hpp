@@ -9,11 +9,12 @@
 #include "modbus/modbus.h"
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 
-namespace Modbus {
-namespace shm {
+
+namespace Modbus::shm {
 
 /*! \brief class that creates a modbus_mapping_t object that uses shared memory (shm) objects.
  *
@@ -21,7 +22,7 @@ namespace shm {
  */
 class Shm_Mapping final {
 private:
-    enum reg_index_t : std::size_t { DO, DI, AO, AI, REG_COUNT };
+    enum reg_index_t : std::uint8_t { DO, DI, AO, AI, REG_COUNT };
 
     //! data for a shared memory object
     struct shm_data_t {
@@ -65,6 +66,11 @@ public:
 
     ~Shm_Mapping() = default;
 
+    Shm_Mapping(const Shm_Mapping &other)            = delete;
+    Shm_Mapping(Shm_Mapping &&other)                 = delete;
+    Shm_Mapping &operator=(const Shm_Mapping &other) = delete;
+    Shm_Mapping &operator=(Shm_Mapping &&other)      = delete;
+
     /*! \brief get a pointer to the created modbus_mapping_t object
      *
      * @return pointer to modbus_mapping_t object
@@ -72,5 +78,4 @@ public:
     modbus_mapping_t *get_mapping() { return &mapping; }
 };
 
-}  // namespace shm
-}  // namespace Modbus
+}  // namespace Modbus::shm

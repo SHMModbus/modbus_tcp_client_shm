@@ -1,24 +1,20 @@
+#
+# Copyright (C) 2020-2022 Nikolas Koesling <nikolas@koesling.info>.
+# This template is free software. You can redistribute it and/or modify it under the terms of the MIT License.
+#
+
 # ---------------------------------------- source files (*.cpp, *.cc, ...) ---------------------------------------------
 # ======================================================================================================================
 
-target_sources(${Target} PRIVATE main.cpp)
-target_sources(${Target} PRIVATE modbus_shm.cpp)
-target_sources(${Target} PRIVATE Modbus_TCP_Client_poll.cpp)
-target_sources(${Target} PRIVATE license.cpp)
-target_sources(${Target} PRIVATE sa_to_str.cpp)
-target_sources(${Target} PRIVATE Print_Time.cpp)
+target_sources(${Target} PRIVATE version_info.cpp)
 
 
 # ---------------------------------------- header files (*.jpp, *.h, ...) ----------------------------------------------
 # ======================================================================================================================
-target_sources(${Target} PRIVATE modbus_shm.hpp)
-target_sources(${Target} PRIVATE Modbus_TCP_Client_poll.hpp)
-target_sources(${Target} PRIVATE license.hpp)
-target_sources(${Target} PRIVATE sa_to_str.hpp)
-target_sources(${Target} PRIVATE Print_Time.hpp)
+
+target_sources(${Target} PRIVATE version_info.hpp)
 
 
 # ---------------------------------------- subdirectories --------------------------------------------------------------
 # ======================================================================================================================
 
-add_subdirectory(generated)

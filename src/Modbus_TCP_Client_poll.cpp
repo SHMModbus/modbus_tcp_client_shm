@@ -16,8 +16,7 @@
 #include <sys/socket.h>
 #include <system_error>
 
-namespace Modbus {
-namespace TCP {
+namespace Modbus::TCP {
 
 //* maximum number of Modbus registers (per type)
 static constexpr int MAX_REGS = 0x10000;
@@ -37,8 +36,8 @@ static constexpr struct timespec SEMAPHORE_MAX_TIME = {0, 100'000};
 Client_Poll::Client_Poll(const std::string &host,
                          const std::string &service,
                          modbus_mapping_t  *mapping,
-                         std::size_t        tcp_timeout,
-                         std::size_t        max_clients)
+                         std::size_t        tcp_timeout,  // NOLINT
+                         std::size_t        max_clients)         // NOLINT
     : max_clients(max_clients), poll_fds(max_clients + 2, {0, 0, 0}) {
     const char *host_str = "::";
     if (!(host.empty() || host == "any")) host_str = host.c_str();
@@ -50,7 +49,7 @@ Client_Poll::Client_Poll(const std::string &host,
         throw std::runtime_error("failed to create modbus instance: " + error_msg);
     }
 
-    modbus_mapping_t *mb_mapping;
+    modbus_mapping_t *mb_mapping;  // NOLINT
 
     if (mapping == nullptr) {
         // create new mapping with the maximum number of registers
@@ -69,7 +68,7 @@ Client_Poll::Client_Poll(const std::string &host,
 
     // use mapping for all client ids
     for (std::size_t i = 0; i < MAX_CLIENT_IDS; ++i) {
-        this->mappings[i] = mb_mapping;
+        this->mappings[i] = mb_mapping;  // NOLINT
     }
 
     listen();
@@ -81,11 +80,11 @@ Client_Poll::Client_Poll(const std::string &host,
 #endif
 }
 
-Client_Poll::Client_Poll(const std::string &host,
-                         const std::string &service,
-                         modbus_mapping_t **mappings,
-                         std::size_t        tcp_timeout,
-                         std::size_t        max_clients)
+Client_Poll::Client_Poll(const std::string                              &host,
+                         const std::string                              &service,
+                         std::array<modbus_mapping_t *, MAX_CLIENT_IDS> &mappings,
+                         std::size_t                                     tcp_timeout,  // NOLINT
+                         std::size_t                                     max_clients)                                      // NOLINT
     : max_clients(max_clients), poll_fds(max_clients + 2, {0, 0, 0}) {
     const char *host_str = "::";
     if (!(host.empty() || host == "any")) host_str = host.c_str();
@@ -100,7 +99,7 @@ Client_Poll::Client_Poll(const std::string &host,
     delete_mapping = nullptr;
 
     for (std::size_t i = 0; i < MAX_CLIENT_IDS; ++i) {
-        if (mappings[i] == nullptr) {
+        if (mappings[i] == nullptr) {  // NOLINT
             if (delete_mapping == nullptr) {
                 delete_mapping = modbus_mapping_new(MAX_REGS, MAX_REGS, MAX_REGS, MAX_REGS);
 
@@ -110,9 +109,9 @@ Client_Poll::Client_Poll(const std::string &host,
                     throw std::runtime_error("failed to allocate memory: " + error_msg);
                 }
             }
-            this->mappings[i] = delete_mapping;
+            this->mappings[i] = delete_mapping;  // NOLINT
         } else {
-            this->mappings[i] = mappings[i];
+            this->mappings[i] = mappings[i];  // NOLINT
         }
     }
 
@@ -156,9 +155,9 @@ Client_Poll::~Client_Poll() {
 }
 
 #ifdef OS_LINUX
-void Client_Poll::set_tcp_timeout(std::size_t tcp_timeout) {
+void Client_Poll::set_tcp_timeout(std::size_t tcp_timeout) const {
     // set user timeout (~= timeout for tcp connection)
-    unsigned user_timeout = static_cast<unsigned>(tcp_timeout) * 1000;
+    unsigned user_timeout = static_cast<unsigned>(tcp_timeout) * 1000;  // NOLINT
     int      tmp = setsockopt(server_socket, IPPROTO_TCP, TCP_USER_TIMEOUT, &user_timeout, sizeof(tcp_timeout));
     if (tmp != 0) {
         throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_USER_TIMEOUT");
@@ -172,14 +171,14 @@ void Client_Poll::set_tcp_timeout(std::size_t tcp_timeout) {
     }
 
     // send up to 5 keepalive requests during the timeout time, but not more than one per second
-    unsigned keepintvl = std::max(static_cast<unsigned>(tcp_timeout / 5), 1u);
+    unsigned keepintvl = std::max(static_cast<unsigned>(tcp_timeout / 5), 1u);  // NOLINT
     tmp                = setsockopt(server_socket, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl));
     if (tmp != 0) {
         throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPINTVL");
     }
 
     // 5 keepalive requests if the timeout time is >= 5s; else send one request each second
-    unsigned keepcnt = std::min(static_cast<unsigned>(tcp_timeout), 5u);
+    unsigned keepcnt = std::min(static_cast<unsigned>(tcp_timeout), 5u);  // NOLINT
     tmp              = setsockopt(server_socket, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt));
     if (tmp != 0) {
         throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_KEEPCNT");
@@ -213,7 +212,7 @@ static inline timeout_t double_to_timeout_t(double timeout) {
     ret.sec = static_cast<uint32_t>(timeout);
 
     double fractional = timeout - static_cast<double>(ret.sec);
-    ret.usec          = static_cast<uint32_t>(fractional * 1000.0 * 1000.0);
+    ret.usec          = static_cast<uint32_t>(fractional * 1000.0 * 1000.0);  // NOLINT
 
     return ret;
 }
@@ -238,7 +237,7 @@ void Client_Poll::set_response_timeout(double timeout) {
     }
 }
 
-double Client_Poll::get_byte_timeout() {
+[[maybe_unused]] double Client_Poll::get_byte_timeout() {
     timeout_t timeout {};
 
     auto ret = modbus_get_byte_timeout(modbus, &timeout.sec, &timeout.usec);
@@ -248,10 +247,10 @@ double Client_Poll::get_byte_timeout() {
         throw std::runtime_error("modbus_receive failed: " + error_msg + ' ' + std::to_string(errno));
     }
 
-    return static_cast<double>(timeout.sec) + (static_cast<double>(timeout.usec) / (1000.0 * 1000.0));
+    return static_cast<double>(timeout.sec) + (static_cast<double>(timeout.usec) / (1000.0 * 1000.0));  // NOLINT
 }
 
-double Client_Poll::get_response_timeout() {
+[[maybe_unused]] double Client_Poll::get_response_timeout() {
     timeout_t timeout {};
 
     auto ret = modbus_get_response_timeout(modbus, &timeout.sec, &timeout.usec);
@@ -261,7 +260,7 @@ double Client_Poll::get_response_timeout() {
         throw std::runtime_error("modbus_receive failed: " + error_msg + ' ' + std::to_string(errno));
     }
 
-    return static_cast<double>(timeout.sec) + (static_cast<double>(timeout.usec) / (1000.0 * 1000.0));
+    return static_cast<double>(timeout.sec) + (static_cast<double>(timeout.usec) / (1000.0 * 1000.0));  // NOLINT
 }
 
 Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) {
@@ -284,7 +283,7 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
     }
 
     // add client sockets to poll
-    for (auto con : client_addrs) {
+    for (const auto &con : client_addrs) {
         auto &fd  = poll_fds[i++];
         fd.fd     = con.first;
         fd.events = POLLIN;
@@ -332,9 +331,9 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
 
                 auto client_socket = modbus_get_socket(modbus);
 
-                struct sockaddr_storage peer_addr;
+                struct sockaddr_storage peer_addr;  // NOLINT
                 socklen_t               len = sizeof(peer_addr);
-                tmp = getpeername(client_socket, reinterpret_cast<struct sockaddr *>(&peer_addr), &len);
+                tmp = getpeername(client_socket, reinterpret_cast<struct sockaddr *>(&peer_addr), &len);  // NOLINT
 
                 if (tmp < 0) {
                     const std::string error_msg = modbus_strerror(errno);
@@ -345,11 +344,11 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
 
                 sstr << sockaddr_to_str(peer_addr);
                 // the port entries have the same offset and size in sockaddr_in and sockaddr_in6
-                sstr << ':' << htons(reinterpret_cast<const struct sockaddr_in *>(&peer_addr)->sin_port);
+                sstr << ':' << htons(reinterpret_cast<const struct sockaddr_in *>(&peer_addr)->sin_port);  // NOLINT
 
                 client_addrs[client_socket] = sstr.str();
                 std::cerr << Print_Time::iso << " INFO: [" << active_clients + 1 << "] Modbus Server (" << sstr.str()
-                          << ") established connection." << std::endl;
+                          << ") established connection." << std::endl;  // NOLINT
             } else {
                 std::ostringstream sstr;
                 sstr << "poll (server socket) returned unknown revent: " << fd.revents;
@@ -380,27 +379,27 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
             } else if (fd.revents & POLLIN || fd.revents & POLLERR) {
                 modbus_set_socket(modbus, fd.fd);
 
-                uint8_t query[MODBUS_TCP_MAX_ADU_LENGTH];
-                int     rc = modbus_receive(modbus, query);
+                std::array<uint8_t, MODBUS_TCP_MAX_ADU_LENGTH> query {};
+                int                                            rc = modbus_receive(modbus, query.data());
                 if (debug) std::cout.flush();
 
                 if (rc > 0) {
                     const auto CLIENT_ID = query[6];
 
                     // get mapping
-                    auto mapping = mappings[CLIENT_ID];
+                    auto mapping = mappings[CLIENT_ID];  // NOLINT
 
                     // handle request
                     if (semaphore) {
                         if (!semaphore->wait(SEMAPHORE_MAX_TIME)) {
                             std::cerr << Print_Time::iso << " WARNING: Failed to acquire semaphore '"
-                                      << semaphore->get_name() << "' within 100ms." << std::endl;
+                                      << semaphore->get_name() << "' within 100ms." << std::endl;  // NOLINT
 
                             semaphore_error_counter += SEMAPHORE_ERROR_INC;
 
                             if (semaphore_error_counter >= SEMAPHORE_ERROR_MAX) {
                                 std::cerr << Print_Time::iso << "ERROR: Repeatedly failed to acquire the semaphore"
-                                          << std::endl;
+                                          << std::endl;  // NOLINT
                                 close_con(client_addrs);
                                 return run_t::semaphore;
                             }
@@ -410,19 +409,19 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
                         }
                     }
 
-                    int ret = modbus_reply(modbus, query, rc, mapping);
+                    int ret = modbus_reply(modbus, query.data(), rc, mapping);
                     if (semaphore && semaphore->is_acquired()) semaphore->post();
                     if (debug) std::cout.flush();
 
                     if (ret == -1) {
                         std::cerr << Print_Time::iso << " ERROR: modbus_reply failed: " << modbus_strerror(errno)
-                                  << std::endl;
+                                  << std::endl;  // NOLINT
                         close_con(client_addrs);
                     }
                 } else if (rc == -1) {
                     if (errno != ECONNRESET) {
                         std::cerr << Print_Time::iso << " ERROR: modbus_receive failed: " << modbus_strerror(errno)
-                                  << std::endl;
+                                  << std::endl;  // NOLINT
                     }
                     close_con(client_addrs);
                 } else {  // rc == 0
@@ -440,10 +439,10 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
     return run_t::ok;
 }
 
-std::string Client_Poll::get_listen_addr() {
-    struct sockaddr_storage sock_addr;
+std::string Client_Poll::get_listen_addr() const {
+    struct sockaddr_storage sock_addr;  // NOLINT
     socklen_t               len = sizeof(sock_addr);
-    int                     tmp = getsockname(server_socket, reinterpret_cast<struct sockaddr *>(&sock_addr), &len);
+    int tmp = getsockname(server_socket, reinterpret_cast<struct sockaddr *>(&sock_addr), &len);  // NOLINT
 
     if (tmp < 0) {
         const std::string error_msg = modbus_strerror(errno);
@@ -453,10 +452,9 @@ std::string Client_Poll::get_listen_addr() {
     std::ostringstream sstr;
     sstr << sockaddr_to_str(sock_addr);
     // the port entries have the same offset and size in sockaddr_in and sockaddr_in6
-    sstr << ':' << htons(reinterpret_cast<const struct sockaddr_in *>(&sock_addr)->sin_port);
+    sstr << ':' << htons(reinterpret_cast<const struct sockaddr_in *>(&sock_addr)->sin_port);  // NOLINT
 
     return sstr.str();
 }
 
-}  // namespace TCP
-}  // namespace Modbus
+}  // namespace Modbus::TCP
