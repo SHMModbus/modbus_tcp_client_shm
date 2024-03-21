@@ -1,4 +1,9 @@
-cmake_minimum_required(VERSION 3.13.4 FATAL_ERROR)
+#
+# Copyright (C) 2020-2024 Nikolas Koesling <nikolas@koesling.info>.
+# This template is free software. You can redistribute it and/or modify it under the terms of the MIT License.
+#
+
+cmake_minimum_required(VERSION 3.24.0 FATAL_ERROR)
 
 # ----------------------------------------------- User settings --------------------------------------------------------
 # ======================================================================================================================
@@ -8,7 +13,7 @@ project(Modbus_TCP_client_shm LANGUAGES CXX VERSION 1.5.2)
 
 # settings
 set(Target "modbus-tcp-client-shm")    # Executable name (without file extension!)
-set(STANDARD 17)                  # C++ Standard
+set(STANDARD 20)                  # C++ Standard
 set(ARCHITECTURE "native")        # CPU architecture to optimize for (only relevant if OPTIMIZE_FOR_ARCHITECTURE is ON)
 
 # options
@@ -19,12 +24,12 @@ option(MAKE_32_BIT_BINARY "Compile as 32 bit application. No effect on 32 bit Sy
 option(OPENMP "enable openmp" OFF)
 option(OPTIMIZE_DEBUG "apply optimizations also in debug mode" ON)
 option(CLANG_FORMAT "use clang-format" ON)
-option(CLANG_TIDY "use clang-tidy" OFF)
+option(CLANG_TIDY "use clang-tidy" ON)
+option(CLANG_TIDY_NO_ERRORS "do not treat clang-tidy warnings as errors" ON)
 option(OPTIMIZE_FOR_ARCHITECTURE "enable optimizations for specified architecture" OFF)
 option(LTO_ENABLED "enable interprocedural and link time optimizations" ON)
 option(COMPILER_EXTENSIONS "enable compiler specific C++ extensions" OFF)
-option(BETA_VERSION "version is a beta version" OFF)
-set(BETA_VERSION_NR 1)
+option(ENABLE_TEST "enable test builds" OFF)
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -33,13 +38,24 @@ set(BETA_VERSION_NR 1)
 # ----------------------------------------------- Do not change --------------------------------------------------------
 # ======================================================================================================================
 
-# TODO select useful checks
-if(CLANG_TIDY)
-    set(CMAKE_CXX_CLANG_TIDY
-            clang-tidy;
-            -checks=*;
-            )
-endif()
+set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
+
+if (CLANG_TIDY)
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        if (${CLANG_TIDY_NO_ERRORS})
+            set(CLANG_TIDY_CONFIG_FILE ${CMAKE_SOURCE_DIR}/.clang-tidy-noerrors)
+        else ()
+            set(CLANG_TIDY_CONFIG_FILE ${CMAKE_SOURCE_DIR}/.clang-tidy)
+        endif ()
+
+        set(CMAKE_CXX_CLANG_TIDY
+                clang-tidy
+                -config-file=${CLANG_TIDY_CONFIG_FILE})
+        message(STATUS "clang-tidy enabled: ${CLANG_TIDY_CONFIG_FILE}")
+    else ()
+        message(WARNING "clang-tidy requested, but only available if clang is selected as compiler")
+    endif ()
+endif ()
 
 # add executable
 add_executable(${Target})
@@ -49,209 +65,53 @@ install(TARGETS ${Target})
 add_subdirectory("src")
 add_subdirectory("libs")
 
+include(warnings.cmake)
+include(define.cmake)
+include(compileropts.cmake)
+
 # force C++ Standard and disable/enable compiler specific extensions
 set_target_properties(${Target} PROPERTIES
         CXX_STANDARD ${STANDARD}
         CXX_STANDARD_REQUIRED ON
         CXX_EXTENSIONS ${COMPILER_EXTENSIONS}
-    )
+)
 
-# compiler definitions
-if(BETA_VERSION)
-    target_compile_definitions(${Target} PUBLIC "PROJECT_VERSION=\"${CMAKE_PROJECT_VERSION}-beta${BETA_VERSION_NR}\"")
-else()
-    target_compile_definitions(${Target} PUBLIC "PROJECT_VERSION=\"${CMAKE_PROJECT_VERSION}\"")
-endif()
+# compiler definitions and options
+set_definitions(${Target})
+if (ENABLE_MULTITHREADING AND OPENMP)
+    set_options(${Target} ON)
+else ()
+    set_options(${Target} OFF)
+endif ()
 
-target_compile_definitions(${Target} PUBLIC "PROJECT_NAME=\"${CMAKE_PROJECT_NAME}\"")
-target_compile_definitions(${Target} PUBLIC "COMPILER_INFO=\"${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}\"")
-target_compile_definitions(${Target} PUBLIC "SYSTEM_INFO=\"${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_VERSION} ${CMAKE_HOST_SYSTEM_PROCESSOR}\"")
-
-
-# options that are valid for gcc and clang
-function(commonopts)
-    # more debugging information
-    if(OPTIMIZE_DEBUG)
-        SET(CMAKE_CXX_FLAGS_DEBUG "-g3 -O3")
-    else()
-        SET(CMAKE_CXX_FLAGS_DEBUG "-g3")
-    endif()
-
-    if(MAKE_32_BIT_BINARY)
-        message(STATUS "Compiling as 32 bit binary.")
-        target_compile_options(${Target} PUBLIC -m32)
-    endif()
-
-    if(ENABLE_MULTITHREADING AND OPENMP)
-        message(STATUS "openmp enabled")
-        target_compile_options(${Target} PUBLIC -fopenmp)
-    endif()
-
-    if(OPTIMIZE_FOR_ARCHITECTURE)
-        message(STATUS "using architecture specific code generator: ${ARCHITECTURE}")
-        target_compile_options(${Target} PUBLIC -march=${ARCHITECTURE})
-    endif()
-endfunction()
-
-# warnings that are valid for gcc and clang
-function(commonwarn)
-    target_compile_options(${Target} PUBLIC -Wall -Wextra -Werror -pedantic -pedantic-errors)
-
-    # see https://gcc.gnu.org/onlinedocs/gcc-4.3.2/gcc/Warning-Options.html for more details
-
-    target_compile_options(${Target} PUBLIC -Wnull-dereference)
-    target_compile_options(${Target} PUBLIC -Wold-style-cast)
-    target_compile_options(${Target} PUBLIC -Wdouble-promotion)
-    target_compile_options(${Target} PUBLIC -Wformat=2)
-    target_compile_options(${Target} PUBLIC -Winit-self)
-    target_compile_options(${Target} PUBLIC -Wsequence-point)
-    target_compile_options(${Target} PUBLIC -Wswitch-default)
-    target_compile_options(${Target} PUBLIC -Wswitch-enum -Wno-error=switch-enum)
-    target_compile_options(${Target} PUBLIC -Wconversion)
-    target_compile_options(${Target} PUBLIC -Wcast-align)
-    target_compile_options(${Target} PUBLIC -Wfloat-equal)
-    target_compile_options(${Target} PUBLIC -Wundef)
-    target_compile_options(${Target} PUBLIC -Wcast-qual)
-endfunction()
-
-# gcc specific warnings
-function(gccwarn)
-    # see https://gcc.gnu.org/onlinedocs/gcc-4.3.2/gcc/Warning-Options.html for more details
-
-    target_compile_options(${Target} PUBLIC -Wduplicated-cond)
-    target_compile_options(${Target} PUBLIC -Wduplicated-branches)
-    target_compile_options(${Target} PUBLIC -Wlogical-op)
-    target_compile_options(${Target} PUBLIC -Wrestrict)
-    target_compile_options(${Target} PUBLIC -Wuseless-cast -Wno-error=useless-cast)
-    target_compile_options(${Target} PUBLIC -Wshadow=local -Wno-error=shadow)
-
-    target_compile_options(${Target} PUBLIC -Wno-error=switch-default)
-    target_compile_options(${Target} PUBLIC -Wno-error=attributes)
-endfunction()
-
-# clang specific warnings
-function(clangwarn)
-    # enable all
-    target_compile_options(${Target} PUBLIC -Weverything)
-
-    # and remove "useless" ones
-    target_compile_options(${Target} PUBLIC -Wno-c++98-compat)
-    target_compile_options(${Target} PUBLIC -Wno-c++98-c++11-c++14-compat)
-    target_compile_options(${Target} PUBLIC -Wno-c++98-compat-pedantic)
-    target_compile_options(${Target} PUBLIC -Wno-error=covered-switch-default)
-    target_compile_options(${Target} PUBLIC -Wno-shadow-field-in-constructor)
-    target_compile_options(${Target} PUBLIC -Wno-padded)
-    target_compile_options(${Target} PUBLIC -Wno-shadow-field)
-    target_compile_options(${Target} PUBLIC -Wno-weak-vtables)
-    target_compile_options(${Target} PUBLIC -Wno-exit-time-destructors)
-    target_compile_options(${Target} PUBLIC -Wno-global-constructors)
-    target_compile_options(${Target} PUBLIC -Wno-error=unreachable-code-return)
-    target_compile_options(${Target} PUBLIC -Wno-error=unreachable-code)
-    target_compile_options(${Target} PUBLIC -Wno-error=documentation)
-    target_compile_options(${Target} PUBLIC -Wno-error=unused-exception-parameter)
-    target_compile_options(${Target} PUBLIC -Wno-nested-anon-types)
-    target_compile_options(${Target} PUBLIC -Wno-gnu-anonymous-struct)
-
-endfunction()
-
-if(COMPILER_WARNINGS)
+if (COMPILER_WARNINGS)
+    enable_warnings(${Target})
     message(STATUS "Compiler warnings enabled.")
-else()
+else ()
+    disable_warnings(${Target})
     message(STATUS "Compiler warnings disabled.")
-endif()
+endif ()
 
-# compiler settings
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    # compiler specific defines
-    target_compile_definitions(${Target} PUBLIC "COMPILER_GNU")
-    target_compile_definitions(${Target} PUBLIC "COMPILER_GNU_CLANG")
-
-    commonopts()
-
-    # enable warnings
-    if(COMPILER_WARNINGS)
-        commonwarn()
-        gccwarn()
-    else()
-        target_compile_options(${Target} PUBLIC -w)
-    endif()
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    # compiler specific defines
-    target_compile_definitions(${Target} PUBLIC "COMPILER_CLANG")
-    target_compile_definitions(${Target} PUBLIC "COMPILER_GNU_CLANG")
-
-    commonopts()
-
-    # enable warnings (general)
-    if(COMPILER_WARNINGS)
-        commonwarn()
-        clangwarn()
-    else()
-        target_compile_options(${Target} PUBLIC -w)
-endif()
-
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-    # compiler specific defines
-    target_compile_definitions(${Target} PUBLIC "COMPILER_MSVC")
-
-    # more debugging information
-    SET(CMAKE_CXX_FLAGS_DEBUG "/Zi")  
-    message(AUTHOR_WARNING
-            "You are using the MSVC compiler! Only gcc/clang are fully supported by this template.")
-
-    if(COMPILER_WARNINGS)
-        target_compile_options(${Target} PUBLIC /Wall /WX)
-    endif()
-
-    if(ENABLE_MULTITHREADING AND OPENMP)
-        target_compile_options(${Target} PUBLIC /OpenMP)
-    endif()
-else()
-    message(AUTHOR_WARNING
-            "You are using a compiler other than gcc/clang. Only gcc/clang are fully supported by this template.")
-endif()
-
-if(ENABLE_MULTITHREADING)
+if (ENABLE_MULTITHREADING)
     # required by threading lib (std::thread)
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     find_package(Threads REQUIRED)
     target_link_libraries(${Target} PRIVATE Threads::Threads)
-endif()
+endif ()
 
 # lto
-if(LTO_ENABLED)
+if (LTO_ENABLED)
     include(CheckIPOSupported)
     check_ipo_supported(RESULT ipo_supported OUTPUT error)
-    if( ipo_supported )
+    if (ipo_supported)
         message(STATUS "IPO / LTO enabled")
         set_property(TARGET ${Target} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-    else()
+    else ()
         message(STATUS "IPO / LTO not supported: <${error}>")
-    endif()
-endif()
+    endif ()
+endif ()
 
-# os dependent defines
-if(CMAKE_SYSTEM_NAME MATCHES "Linux")
-    target_compile_definitions(${Target} PUBLIC "OS_LINUX")
-    target_compile_definitions(${Target} PUBLIC "OS_POSIX")
-elseif(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
-    target_compile_definitions(${Target} PUBLIC "OS_FREEBSD")
-    target_compile_definitions(${Target} PUBLIC "OS_POSIX")
-elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
-    target_compile_definitions(${Target} PUBLIC "OS_WINDOWS")
-    # TODO check options
-    target_compile_options(${Target} PUBLIC -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd)
-    SET(CMAKE_CXX_FLAGS_DEBUG "-g3 -D_DEBUG")
-elseif(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-    target_compile_definitions(${Target} PUBLIC "OS_DARWIN")
-    target_compile_definitions(${Target} PUBLIC "OS_POSIX")
-endif()
-
-# architecture defines
-target_compile_definitions(${Target} PUBLIC CPU_WORD_BYTES=${CMAKE_SIZEOF_VOID_P})
-
-
-if(BUILD_DOC)
+if (BUILD_DOC)
     # doxygen documentation (https://vicrucann.github.io/tutorials/quick-cmake-doxygen/)
     # check if Doxygen is installed
     find_package(Doxygen)
@@ -260,35 +120,71 @@ if(BUILD_DOC)
         set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
         set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
 
-        if(EXISTS ${DOXYGEN_IN})
+        if (EXISTS ${DOXYGEN_IN})
             # request to configure the file
             configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
             message(STATUS "Doxygen configured")
 
             # note the option ALL which allows to build the docs together with the application
-            add_custom_target( doc_doxygen ALL
-                COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
-                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                COMMENT "Generating API documentation with Doxygen"
-                VERBATIM )
-            message(STATUS "Added target doc_doxygen")
-        else()
+            add_custom_target(doc_doxygen_${Target} ALL
+                    COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                    COMMENT "Generating API documentation with Doxygen"
+                    VERBATIM)
+            message(STATUS "Added target doc_doxygen_${Target}")
+
+            if (TARGET doc_doxygen)
+                add_dependencies(doc_doxygen doc_doxygen_${Target})
+            else ()
+                add_custom_target(doc_doxygen DEPENDS doc_doxygen_${Target})
+            endif ()
+        else ()
             message(WARNING "doxygen documentation requested, but file ${DOXYGEN_IN} does not exist.")
-        endif()
+        endif ()
     else (DOXYGEN_FOUND)
-      message(WARNING "Doxygen need to be installed and accessible to generate the doxygen documentation.")
+        message(WARNING "Doxygen must be installed and accessible to generate the doxygen documentation.")
     endif (DOXYGEN_FOUND)
-endif()
+endif ()
 
 # add clang format target
-if(CLANG_FORMAT)
+if (CLANG_FORMAT)
     set(CLANG_FORMAT_FILE ${CMAKE_CURRENT_SOURCE_DIR}/.clang-format)
 
-    if(EXISTS ${CLANG_FORMAT_FILE})
+    if (EXISTS ${CLANG_FORMAT_FILE})
         include(ClangFormat.cmake)
         target_clangformat_setup(${Target})
         message(STATUS "Added clang format target(s)")
-    else()
+    else ()
         message(WARNING "Clang format enabled, but file ${CLANG_FORMAT_FILE}  does not exist")
-    endif()
-endif()
+    endif ()
+endif ()
+
+# add test targets
+if (ENABLE_TEST)
+    enable_testing()
+    add_subdirectory("test")
+endif ()
+
+# generate version_info.cpp
+# output is not the acutal generated file --> command is always executed
+add_custom_command(
+        OUTPUT
+        ${CMAKE_SOURCE_DIR}/src/generated/version_info_cpp
+
+        COMMAND
+        bash ${CMAKE_SOURCE_DIR}/scripts/gen_version_info_cpp.sh ${PROJECT_NAME}
+
+        WORKING_DIRECTORY
+        ${CMAKE_SOURCE_DIR}
+)
+
+execute_process(
+        COMMAND bash "${CMAKE_SOURCE_DIR}/scripts/gen_version_info_cpp.sh" ${PROJECT_NAME}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_custom_target(${Target}_generated_version_info
+        DEPENDS ${CMAKE_SOURCE_DIR}/src/generated/version_info_cpp
+)
+
+add_dependencies(${Target} ${Target}_generated_version_info)

@@ -4,7 +4,9 @@
  */
 #pragma once
 
+#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cxxsemaphore.hpp>
 #include <memory>
 #include <modbus/modbus.h>
@@ -15,14 +17,14 @@
 #include <unordered_set>
 #include <vector>
 
-namespace Modbus {
-namespace TCP {
+
+namespace Modbus::TCP {
 
 class Client_Poll {
 public:
     static constexpr std::size_t MAX_CLIENT_IDS = 256;
 
-    enum class run_t { ok, term_signal, term_nocon, timeout, interrupted, semaphore };
+    enum class run_t : std::uint8_t { ok, term_signal, term_nocon, timeout, interrupted, semaphore };
 
 private:
     const std::size_t          max_clients;
@@ -31,10 +33,10 @@ private:
     bool debug = false;  //!< modbus debugging enabled
 
     modbus_t *modbus;  //!< modbus object (see libmodbus library)
-    modbus_mapping_t
-            *mappings[MAX_CLIENT_IDS];  //!< modbus data objects (one per possible client id) (see libmodbus library)
-    modbus_mapping_t                    *delete_mapping;      //!< contains a pointer to a mapping that is to be deleted
-    int                                  server_socket = -1;  //!< socket of the modbus connection
+    std::array<modbus_mapping_t *, MAX_CLIENT_IDS>
+                      mappings {};         //!< modbus data objects (one per possible client id) (see libmodbus library)
+    modbus_mapping_t *delete_mapping;      //!< contains a pointer to a mapping that is to be deleted
+    int               server_socket = -1;  //!< socket of the modbus connection
     std::unordered_map<int, std::string> client_addrs;
 
     std::unique_ptr<cxxsemaphore::Semaphore> semaphore;
@@ -64,16 +66,21 @@ public:
      * @param mappings modbus mappings (one for each possible id)
      * @param tcp_timeout tcp timeout (currently only available on linux systems)
      */
-    Client_Poll(const std::string &host,
-                const std::string &service,
-                modbus_mapping_t  *mappings[MAX_CLIENT_IDS],
-                std::size_t        tcp_timeout = 5,
-                std::size_t        max_clients = 1);
+    Client_Poll(const std::string                              &host,
+                const std::string                              &service,
+                std::array<modbus_mapping_t *, MAX_CLIENT_IDS> &mappings,
+                std::size_t                                     tcp_timeout = 5,
+                std::size_t                                     max_clients = 1);
 
     /**
      * @brief destroy the modbus client
      */
     ~Client_Poll();
+
+    Client_Poll(const Client_Poll &other)           = delete;
+    Client_Poll(Client_Poll &&other)                = delete;
+    Client_Poll operator&(const Client_Poll &other) = delete;
+    Client_Poll operator&(Client_Poll &&other)      = delete;
 
     /**
      * @brief use the semaphore mechanism
@@ -93,7 +100,7 @@ public:
      *
      * @return server listening address
      */
-    std::string get_listen_addr();
+    std::string get_listen_addr() const;
 
     /*!
      * \brief set byte timeout
@@ -117,13 +124,13 @@ public:
      * \brief get byte timeout in seconds
      * @return byte timeout
      */
-    double get_byte_timeout();
+    [[maybe_unused]] double get_byte_timeout();
 
     /**
      * \brief get response timeout in seconds
      * @return response timeout
      */
-    double get_response_timeout();
+    [[maybe_unused]] double get_response_timeout();
 
     /*! \brief get the modbus socket
      *
@@ -144,11 +151,10 @@ public:
 
 private:
 #ifdef OS_LINUX
-    void set_tcp_timeout(std::size_t tcp_timeout);
+    void set_tcp_timeout(std::size_t tcp_timeout) const;
 #endif
 
     void listen();
 };
 
-}  // namespace TCP
-}  // namespace Modbus
+}  // namespace Modbus::TCP
