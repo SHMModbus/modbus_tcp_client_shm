@@ -3,7 +3,7 @@
 # This template is free software. You can redistribute it and/or modify it under the terms of the MIT License.
 #
 
-cmake_minimum_required(VERSION 3.24.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
 
 # ----------------------------------------------- User settings --------------------------------------------------------
 # ======================================================================================================================
