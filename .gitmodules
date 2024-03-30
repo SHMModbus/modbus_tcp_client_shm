@@ -4,6 +4,3 @@
 [submodule "libs/libmodbus"]
 	path = libs/libmodbus
 	url = https://github.com/stephane/libmodbus
-[submodule "libs/cxxsemaphore"]
-	path = libs/cxxsemaphore
-	url = https://github.com/NikolasK-source/cxxsemaphore.git
