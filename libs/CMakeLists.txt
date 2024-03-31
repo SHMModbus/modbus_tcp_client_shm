@@ -2,6 +2,7 @@
 # ======================================================================================================================
 find_package(cxxshm REQUIRED)
 find_package(cxxsemaphore REQUIRED)
+find_package(cxxopts REQUIRED)
 
 # ---------------------------------------- external libs ---------------------------------------------------------------
 # ======================================================================================================================
@@ -9,12 +10,11 @@ find_library(modbus_library modbus)
 
 # ---------------------------------------- subdirectories --------------------------------------------------------------
 # ======================================================================================================================
-add_subdirectory(cxxopts EXCLUDE_FROM_ALL)
 
 # ---------------------------------------- link libraries --------------------------------------------------------------
 # ======================================================================================================================
 target_link_libraries(${Target} PRIVATE ${modbus_library})
 target_link_libraries(${Target} PRIVATE rt)
-target_link_libraries(${Target} PRIVATE cxxopts)
+target_link_libraries(${Target} PRIVATE INTERFACE cxxopts)
 target_link_libraries(${Target} PRIVATE cxxshm)
 target_link_libraries(${Target} PRIVATE cxxsemaphore)
