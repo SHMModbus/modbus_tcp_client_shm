@@ -1,18 +1,20 @@
+# ---------------------------------------- packages --------------------------------------------------------------------
+# ======================================================================================================================
+find_package(cxxshm REQUIRED)
+find_package(cxxsemaphore REQUIRED)
 
-find_package(cxxshm)
-find_package(cxxsemaphore)
+# ---------------------------------------- external libs ---------------------------------------------------------------
+# ======================================================================================================================
+find_library(modbus_library modbus)
 
 # ---------------------------------------- subdirectories --------------------------------------------------------------
 # ======================================================================================================================
-include(../modbus.cmake)
-target_link_libraries(${Target} PRIVATE modbus)
+add_subdirectory(cxxopts EXCLUDE_FROM_ALL)
 
 # ---------------------------------------- link libraries --------------------------------------------------------------
 # ======================================================================================================================
+target_link_libraries(${Target} PRIVATE ${modbus_library})
 target_link_libraries(${Target} PRIVATE rt)
-
-add_subdirectory(cxxopts EXCLUDE_FROM_ALL)
 target_link_libraries(${Target} PRIVATE cxxopts)
-
 target_link_libraries(${Target} PRIVATE cxxshm)
 target_link_libraries(${Target} PRIVATE cxxsemaphore)

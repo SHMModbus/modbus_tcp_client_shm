@@ -1,6 +1,3 @@
 [submodule "libs/cxxopts"]
 	path = libs/cxxopts
 	url = https://github.com/NikolasK-source/cxxopts.git
-[submodule "libs/libmodbus"]
-	path = libs/libmodbus
-	url = https://github.com/stephane/libmodbus
