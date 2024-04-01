@@ -11,7 +11,7 @@
  * @brief struct that contains version information
  * @details contains only static members --> no instance can be created
  */
-struct ###PROJECT_NAME###_version_info {
+struct XXXPROJECT_NAMEXXX_version_info {
     //* Mayor version number
     static constexpr int MAYOR = PROJECT_VERSION_MAJOR;
 
@@ -43,5 +43,5 @@ struct ###PROJECT_NAME###_version_info {
     static const std::string GIT_HASH;
 
 private:
-    ###PROJECT_NAME###_version_info() = default;
+    XXXPROJECT_NAMEXXX_version_info() = default;
 };

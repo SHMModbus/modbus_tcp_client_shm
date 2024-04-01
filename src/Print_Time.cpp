@@ -8,7 +8,7 @@
 #include <array>
 #include <ctime>
 
-Print_Time Print_Time::iso("%F_%T");
+Print_Time Print_Time::iso("%F_%T");  // NOLINT
 
 std::ostream &operator<<(std::ostream &o, const Print_Time &p) {
     auto                                            now = time(nullptr);

@@ -321,7 +321,7 @@ int main(int argc, char **argv) {
         bool        fail                = false;
         std::size_t idx                 = 0;
         try {
-            shm_permissions = std::stoul(shm_permissions_str, &idx, 0);
+            shm_permissions = static_cast<mode_t>(std::stoul(shm_permissions_str, &idx, 0));
         } catch (const std::exception &) { fail = true; }
         fail = fail || idx != shm_permissions_str.size();
 
