@@ -18,17 +18,60 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    
-    - name: Init submodules
-      run: git submodule init
-      
-    - name: Update submodules
-      run: git submodule update
+
+    - name: create tmp dir
+      run: mkdir tmp
+
+    - name: update
+      run: |
+        sudo apt update
+        sudo apt upgrade -y
+
+    - name: install cxxopts
+      run: |
+        git clone https://github.com/jarro2783/cxxopts.git tmp/cxxopts
+        cd tmp/cxxopts
+        git checkout $(git tag | grep -P '^v\d+\.\d+\.\d+$' | sort | tail -1)
+        cmake -B build . -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCLANG_FORMAT=OFF -DCOMPILER_WARNINGS=OFF -DCLANG_TIDY=OFF
+        cmake --build build
+        sudo cmake --install build
+        cd -
+
+    - name: install cxxshm
+      run: |
+        git clone https://github.com/NikolasK-source/cxxshm.git tmp/cxxshm
+        cd tmp/cxxshm
+        git checkout $(git tag | grep -P '^v\d+\.\d+\.\d+$' | sort | tail -1)
+        cmake -B build . -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCLANG_FORMAT=OFF -DCOMPILER_WARNINGS=OFF -DCLANG_TIDY=OFF
+        cmake --build build
+        sudo cmake --install build
+        cd -
+
+    - name: install cxxsemaphore
+      run: |
+        git clone https://github.com/NikolasK-source/cxxsemaphore.git tmp/cxxsemaphore
+        cd tmp/cxxsemaphore
+        git checkout $(git tag | grep -P '^v\d+\.\d+\.\d+$' | sort | tail -1)
+        cmake -B build . -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCLANG_FORMAT=OFF -DCOMPILER_WARNINGS=OFF -DCLANG_TIDY=OFF
+        cmake --build build
+        sudo cmake --install build
+        cd -
+
+    - name: install libmodbus
+      run: |
+        git clone https://github.com/stephane/libmodbus.git tmp/libmodbus
+        cd tmp/libmodbus
+        git checkout $(git tag | grep -P '^v\d+\.\d+\.\d+$' | sort | tail -1)
+        autoreconf --install --symlink --force
+        ./configure
+        make
+        sudo make install
+        cd -
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCLANG_FORMAT=OFF -DCOMPILER_WARNINGS=OFF
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCLANG_FORMAT=OFF -DCOMPILER_WARNINGS=OFF -DCLANG_TIDY=OFF -DBUILD_DOC=OFF
 
     - name: Build
       # Build your program with the given configuration
