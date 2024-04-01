@@ -192,13 +192,13 @@ void Client_Poll::enable_semaphore(const std::string &name, bool force) {
     semaphore = std::make_unique<cxxsemaphore::Semaphore>(name, 1, force);
 }
 
-void Client_Poll::set_debug(bool debug) {
-    if (modbus_set_debug(modbus, debug)) {
+void Client_Poll::set_debug(bool enable_debug) {
+    if (modbus_set_debug(modbus, enable_debug)) {
         const std::string error_msg = modbus_strerror(errno);
         throw std::runtime_error("failed to enable modbus debugging mode: " + error_msg);
     }
 
-    this->debug = debug;
+    this->debug = enable_debug;
 }
 
 struct timeout_t {
@@ -360,11 +360,11 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
     for (; i < poll_size; ++i) {
         auto &fd = poll_fds[i];
 
-        auto close_con = [&fd](auto &client_addrs) {
+        auto close_con = [&fd](auto &_client_addrs) {
             close(fd.fd);
-            std::cerr << Print_Time::iso << " INFO: [" << client_addrs.size() - 1 << "] Modbus server ("
-                      << client_addrs[fd.fd] << ") connection closed." << std::endl;
-            client_addrs.erase(fd.fd);
+            std::cerr << Print_Time::iso << " INFO: [" << _client_addrs.size() - 1 << "] Modbus server ("
+                      << _client_addrs[fd.fd] << ") connection closed." << std::endl;
+            _client_addrs.erase(fd.fd);
         };
 
         if (fd.revents) {

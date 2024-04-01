@@ -92,9 +92,9 @@ public:
 
     /*! \brief enable/disable debugging output
      *
-     * @param debug true: enable debug output
+     * @param enable_debug true: enable debug output
      */
-    void set_debug(bool debug);
+    void set_debug(bool enable_debug);
 
     /** \brief get the address the tcp server is listening on
      *
