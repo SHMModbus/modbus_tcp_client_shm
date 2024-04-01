@@ -230,16 +230,6 @@ int main(int argc, char **argv) {
     }
 
     // print version
-    if (args.count("longversion")) {
-        std::cout << PROJECT_NAME << ' ' << PROJECT_VERSION << " (compiled with " << COMPILER_INFO << " on "
-                  << SYSTEM_INFO << ')'
-#ifndef OS_LINUX
-                  << "-nonlinux"
-#endif
-                  << '\n';
-        return EX_OK;
-    }
-
     if (args.count("shortversion")) {
         std::cout << PROJECT_VERSION << '\n';
         return EX_OK;
