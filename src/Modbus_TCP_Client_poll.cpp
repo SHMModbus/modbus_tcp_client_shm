@@ -158,7 +158,7 @@ Client_Poll::~Client_Poll() {
 void Client_Poll::set_tcp_timeout(std::size_t tcp_timeout) const {
     // set user timeout (~= timeout for tcp connection)
     unsigned user_timeout = static_cast<unsigned>(tcp_timeout) * 1000;  // NOLINT
-    int      tmp = setsockopt(server_socket, IPPROTO_TCP, TCP_USER_TIMEOUT, &user_timeout, sizeof(tcp_timeout));
+    int      tmp = setsockopt(server_socket, IPPROTO_TCP, TCP_USER_TIMEOUT, &user_timeout, sizeof(user_timeout));
     if (tmp != 0) {
         throw std::system_error(errno, std::generic_category(), "Failed to set socket option TCP_USER_TIMEOUT");
     }
