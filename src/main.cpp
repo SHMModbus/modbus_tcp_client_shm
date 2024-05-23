@@ -12,8 +12,11 @@
 #include <atomic>
 #include <condition_variable>
 #include <csignal>
+#include <cxxsemaphore_version_info.hpp>
+#include <cxxshm_version_info.hpp>
 #include <filesystem>
 #include <iostream>
+#include <modbus/modbus-version.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/signalfd.h>
@@ -254,6 +257,23 @@ int main(int argc, char **argv) {
 #endif
                   << '\n';
         std::cout << "   from git commit " << RCS_HASH << '\n';
+
+        std::cout << "Libraries:\n";
+
+        std::cout << "   " << cxxshm_version_info::NAME << ' ' << cxxshm_version_info::VERSION_STR << '\n';
+        std::cout << "      compiled with " << cxxshm_version_info::COMPILER << '\n';
+        std::cout << "      on system " << cxxshm_version_info::SYSTEM << '\n';
+        std::cout << "      from git commit " << cxxshm_version_info::GIT_HASH << '\n';
+
+        std::cout << "   " << cxxsemaphore_version_info::NAME << ' ' << cxxsemaphore_version_info::VERSION_STR << '\n';
+        std::cout << "      compiled with " << cxxsemaphore_version_info::COMPILER << '\n';
+        std::cout << "      on system " << cxxsemaphore_version_info::SYSTEM << '\n';
+        std::cout << "      from git commit " << cxxsemaphore_version_info::GIT_HASH << '\n';
+
+        std::cout << "   libmodbus " << LIBMODBUS_VERSION_STRING << '\n';
+
+        std::cout << "   cxxopts " << static_cast<int>(cxxopts::version.major) << '.' << static_cast<int>(cxxopts::version.minor) << '.' << static_cast<int>(cxxopts::version.patch) << '\n';
+
         return EX_OK;
     }
 
