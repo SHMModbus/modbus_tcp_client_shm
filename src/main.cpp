@@ -272,7 +272,9 @@ int main(int argc, char **argv) {
 
         std::cout << "   libmodbus " << LIBMODBUS_VERSION_STRING << '\n';
 
-        std::cout << "   cxxopts " << static_cast<int>(cxxopts::version.major) << '.' << static_cast<int>(cxxopts::version.minor) << '.' << static_cast<int>(cxxopts::version.patch) << '\n';
+        std::cout << "   cxxopts " << static_cast<int>(cxxopts::version.major) << '.'
+                  << static_cast<int>(cxxopts::version.minor) << '.' << static_cast<int>(cxxopts::version.patch)
+                  << '\n';
 
         return EX_OK;
     }
