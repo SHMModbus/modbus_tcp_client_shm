@@ -144,10 +144,15 @@ public:
      *                  true: continue listening for new connections if there is no client (Mosbus Server) left
      * @param timeout timeout valoue for call of poll (see: man 2 poll)
      * @param signal_fd signal file descriptor for termination signals
+     * @param mb_function_callback callback function that is called with the modbus function code on each modbus
+     * telegram
      * @return true continue
      * @return false terminate
      */
-    run_t run(int signal_fd, bool reconnect = true, int timeout = -1);
+    run_t run(int  signal_fd,
+              bool reconnect                                         = true,
+              int  timeout                                           = -1,
+              void (*mb_function_callback)(uint8_t mb_function_code) = nullptr);
 
 private:
 #ifdef OS_LINUX

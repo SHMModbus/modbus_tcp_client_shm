@@ -3,6 +3,7 @@
  * This program is free software. You can redistribute it and/or modify it under the terms of the GPLv3 License.
  */
 
+#include "Mb_Proc_Signal.hpp"
 #include "Modbus_TCP_Client_poll.hpp"
 #include "Print_Time.hpp"
 #include "generated/version_info.hpp"
@@ -188,6 +189,8 @@ int main(int argc, char **argv) {
     options.add_options("version information")("git-hash", "print git hash");
     options.add_options("other")("license", "show licences (short)");
     options.add_options("other")("license-full", "show licences (full license text)");
+    options.add_options("signal")(
+            "k,signal", "send SIGUSR to process on writing modbus commands", cxxopts::value<std::vector<pid_t>>());
 
     // parse arguments
     cxxopts::ParseResult args;
@@ -440,6 +443,14 @@ int main(int argc, char **argv) {
         }
     }
 
+    bool SIGNAL_PROCESS = args.count("signal") > 0;
+    if (SIGNAL_PROCESS) {
+        auto &processes = args["signal"].as<std::vector<pid_t>>();
+        for (auto proc : processes) {
+            Mb_Proc_Signal::get_instance().add_process(proc);
+        }
+    }
+
 
     // create modbus client
     std::unique_ptr<Modbus::TCP::Client_Poll> client;
@@ -487,7 +498,7 @@ int main(int argc, char **argv) {
     try {
         [&]() {
             while (true) {
-                auto ret = client->run(signal_fd, RECONNECT, -1);
+                auto ret = client->run(signal_fd, RECONNECT, -1, SIGNAL_PROCESS ? &mb_callback : nullptr);
 
                 switch (ret) {
                     case Modbus::TCP::Client_Poll::run_t::ok: continue;

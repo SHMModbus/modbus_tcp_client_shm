@@ -263,7 +263,10 @@ void Client_Poll::set_response_timeout(double timeout) {
     return static_cast<double>(timeout.sec) + (static_cast<double>(timeout.usec) / (1000.0 * 1000.0));  // NOLINT
 }
 
-Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) {
+Client_Poll::run_t Client_Poll::run(int  signal_fd,
+                                    bool reconnect,
+                                    int  timeout,
+                                    void (*mb_function_callback)(uint8_t mb_function_code)) {
     std::size_t i = 0;
 
     // poll signal fd
@@ -418,6 +421,13 @@ Client_Poll::run_t Client_Poll::run(int signal_fd, bool reconnect, int timeout) 
                                   << std::endl;  // NOLINT
                         close_con(client_addrs);
                     }
+
+                    // function code callback
+                    if (mb_function_callback) {
+                        const auto FUNCTION_CODE = query[7];
+                        mb_function_callback(FUNCTION_CODE);
+                    }
+
                 } else if (rc == -1) {
                     if (errno != ECONNRESET) {
                         std::cerr << Print_Time::iso << " ERROR: modbus_receive failed: " << modbus_strerror(errno)
