@@ -3,6 +3,7 @@
  * This program is free software. You can redistribute it and/or modify it under the terms of the GPLv3 License.
  */
 
+#include "Mb_Proc_Signal.hpp"
 #include "Modbus_TCP_Client_poll.hpp"
 #include "Print_Time.hpp"
 #include "generated/version_info.hpp"
@@ -12,8 +13,11 @@
 #include <atomic>
 #include <condition_variable>
 #include <csignal>
+#include <cxxsemaphore_version_info.hpp>
+#include <cxxshm_version_info.hpp>
 #include <filesystem>
 #include <iostream>
+#include <modbus/modbus-version.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/signalfd.h>
@@ -52,16 +56,17 @@ static volatile bool terminate = false;  // NOLINT
 /*! \brief signal handler (SIGINT and SIGTERM)
  *
  */
-constexpr std::array<int, 10> TERM_SIGNALS = {SIGINT,
-                                              SIGTERM,
-                                              SIGHUP,
-                                              SIGIO,  // should not happen
-                                              SIGPIPE,
-                                              SIGPOLL,  // should not happen
-                                              SIGPROF,  // should not happen
-                                              SIGUSR1,
-                                              SIGUSR2,
-                                              SIGVTALRM};
+const std::array<int, 11> HANDLED_SIGNALS = {SIGINT,
+                                             SIGTERM,
+                                             SIGHUP,
+                                             SIGIO,  // should not happen
+                                             SIGPIPE,
+                                             SIGPOLL,  // should not happen
+                                             SIGPROF,  // should not happen
+                                             SIGUSR1,
+                                             SIGUSR2,
+                                             SIGVTALRM};
+
 
 /*! \brief main function
  *
@@ -83,14 +88,10 @@ int main(int argc, char **argv) {
         std::cerr << Print_Time::iso
                   << " WARNING: !!!! You should not execute this program with root privileges !!!!'n";
 
-#ifdef COMPILER_CLANG
-#    pragma clang diagnostic push
-#    pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
-#endif
     // create signal fd
     sigset_t sigmask;
     sigemptyset(&sigmask);
-    for (const auto SIGNO : TERM_SIGNALS) {
+    for (const auto SIGNO : HANDLED_SIGNALS) {
         sigaddset(&sigmask, SIGNO);
     }
 
@@ -104,9 +105,6 @@ int main(int argc, char **argv) {
         perror("signal_fd");
         return EX_OSERR;
     }
-#ifdef COMPILER_CLANG
-#    pragma clang diagnostic pop
-#endif
 
     // all command line arguments
     options.add_options("network")(
@@ -185,6 +183,11 @@ int main(int argc, char **argv) {
     options.add_options("version information")("git-hash", "print git hash");
     options.add_options("other")("license", "show licences (short)");
     options.add_options("other")("license-full", "show licences (full license text)");
+    options.add_options("signal")(
+            "k,signal", "send SIGUSR1 to process on writing modbus commands", cxxopts::value<std::vector<pid_t>>());
+    options.add_options("signal")("signal-register",
+                                  "allow processes to register themselves for receiving SIGUSR1 on writing modbus "
+                                  "commands by sending SIGUSR1.");
 
     // parse arguments
     cxxopts::ParseResult args;
@@ -254,6 +257,25 @@ int main(int argc, char **argv) {
 #endif
                   << '\n';
         std::cout << "   from git commit " << RCS_HASH << '\n';
+
+        std::cout << "Libraries:\n";
+
+        std::cout << "   " << cxxshm_version_info::NAME << ' ' << cxxshm_version_info::VERSION_STR << '\n';
+        std::cout << "      compiled with " << cxxshm_version_info::COMPILER << '\n';
+        std::cout << "      on system " << cxxshm_version_info::SYSTEM << '\n';
+        std::cout << "      from git commit " << cxxshm_version_info::GIT_HASH << '\n';
+
+        std::cout << "   " << cxxsemaphore_version_info::NAME << ' ' << cxxsemaphore_version_info::VERSION_STR << '\n';
+        std::cout << "      compiled with " << cxxsemaphore_version_info::COMPILER << '\n';
+        std::cout << "      on system " << cxxsemaphore_version_info::SYSTEM << '\n';
+        std::cout << "      from git commit " << cxxsemaphore_version_info::GIT_HASH << '\n';
+
+        std::cout << "   libmodbus " << LIBMODBUS_VERSION_STRING << '\n';
+
+        std::cout << "   cxxopts " << static_cast<int>(cxxopts::version.major) << '.'
+                  << static_cast<int>(cxxopts::version.minor) << '.' << static_cast<int>(cxxopts::version.patch)
+                  << '\n';
+
         return EX_OK;
     }
 
@@ -418,12 +440,22 @@ int main(int argc, char **argv) {
         }
     }
 
+    bool SIGNAL_PROCESS = args.count("signal") > 0;
+    if (SIGNAL_PROCESS) {
+        auto &processes = args["signal"].as<std::vector<pid_t>>();
+        for (auto proc : processes) {
+            Mb_Proc_Signal::get_instance().add_process(proc);
+        }
+    }
+    if (args.count("signal-register") > 0) SIGNAL_PROCESS = true;
+
 
     // create modbus client
     std::unique_ptr<Modbus::TCP::Client_Poll> client;
     try {
         client = std::make_unique<Modbus::TCP::Client_Poll>(args["host"].as<std::string>(),
                                                             args["service"].as<std::string>(),
+                                                            args["signal-register"].count() > 0,
                                                             mb_mappings,
 #ifdef OS_LINUX
                                                             args["tcp-timeout"].as<std::size_t>(),
@@ -465,7 +497,7 @@ int main(int argc, char **argv) {
     try {
         [&]() {
             while (true) {
-                auto ret = client->run(signal_fd, RECONNECT, -1);
+                auto ret = client->run(signal_fd, RECONNECT, -1, SIGNAL_PROCESS ? &mb_callback : nullptr);
 
                 switch (ret) {
                     case Modbus::TCP::Client_Poll::run_t::ok: continue;
