@@ -42,32 +42,39 @@ private:
     std::unique_ptr<cxxsemaphore::Semaphore> semaphore;
 
     long semaphore_error_counter = 0;
+    bool allow_sigusr1;
 
 public:
     /*! \brief create modbus client (TCP server)
      *
      * @param host host to listen for incoming connections (default 0.0.0.0 (any))
      * @param service service/port to listen  for incoming connections (default 502)
+     * @param allow_sigusr1 allow other processes to register for SIGUSR1 on writing modbus commands by sending SIGUSR1
      * @param mapping modbus mapping object for all client ids
      *                nullptr: an mapping object with maximum size is generated
      * @param tcp_timeout tcp timeout (currently only available on linux systems)
+     * @param max_clients max number of allowed clients
      */
-    explicit Client_Poll(const std::string &host        = "any",
-                         const std::string &service     = "502",
-                         modbus_mapping_t  *mapping     = nullptr,
-                         std::size_t        tcp_timeout = 5,
-                         std::size_t        max_clients = 1);
+    explicit Client_Poll(const std::string &host          = "any",
+                         const std::string &service       = "502",
+                         bool               allow_sigusr1 = false,
+                         modbus_mapping_t  *mapping       = nullptr,
+                         std::size_t        tcp_timeout   = 5,
+                         std::size_t        max_clients   = 1);
 
     /**
      * @brief create modbus client (TCP server) with dedicated mappings per client id
      *
      * @param host host to listen for incoming connections
      * @param service service/port to listen  for incoming connections
+     * @param allow_sigusr1 allow other processes to register for SIGUSR1 on writing modbus commands by sending SIGUSR1
      * @param mappings modbus mappings (one for each possible id)
      * @param tcp_timeout tcp timeout (currently only available on linux systems)
+     * @param max_clients max number of allowed clients
      */
     Client_Poll(const std::string                              &host,
                 const std::string                              &service,
+                bool                                            allow_sigusr1,
                 std::array<modbus_mapping_t *, MAX_CLIENT_IDS> &mappings,
                 std::size_t                                     tcp_timeout = 5,
                 std::size_t                                     max_clients = 1);

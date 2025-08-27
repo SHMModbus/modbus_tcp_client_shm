@@ -62,6 +62,8 @@ function(clangwarn target)
     target_compile_options(${target} PUBLIC -Wno-nested-anon-types)
     target_compile_options(${target} PUBLIC -Wno-gnu-anonymous-struct)
     target_compile_options(${target} PUBLIC -Wno-source-uses-openmp)
+    target_compile_options(${target} PUBLIC -Wno-switch-default)
+    target_compile_options(${target} PUBLIC -Wno-disabled-macro-expansion)
 
 endfunction()
 

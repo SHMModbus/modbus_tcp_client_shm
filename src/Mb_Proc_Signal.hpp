@@ -26,7 +26,7 @@ public:
 
     void add_process(pid_t process);
 
-    void send_signal();
+    void send_signal(const union sigval &value);
 };
 
 void mb_callback(uint8_t mb_funtion_code);

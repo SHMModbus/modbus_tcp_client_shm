@@ -56,16 +56,17 @@ static volatile bool terminate = false;  // NOLINT
 /*! \brief signal handler (SIGINT and SIGTERM)
  *
  */
-constexpr std::array<int, 10> TERM_SIGNALS = {SIGINT,
-                                              SIGTERM,
-                                              SIGHUP,
-                                              SIGIO,  // should not happen
-                                              SIGPIPE,
-                                              SIGPOLL,  // should not happen
-                                              SIGPROF,  // should not happen
-                                              SIGUSR1,
-                                              SIGUSR2,
-                                              SIGVTALRM};
+const std::array<int, 11> HANDLED_SIGNALS = {SIGINT,
+                                             SIGTERM,
+                                             SIGHUP,
+                                             SIGIO,  // should not happen
+                                             SIGPIPE,
+                                             SIGPOLL,  // should not happen
+                                             SIGPROF,  // should not happen
+                                             SIGUSR1,
+                                             SIGUSR2,
+                                             SIGVTALRM};
+
 
 /*! \brief main function
  *
@@ -87,14 +88,10 @@ int main(int argc, char **argv) {
         std::cerr << Print_Time::iso
                   << " WARNING: !!!! You should not execute this program with root privileges !!!!'n";
 
-#ifdef COMPILER_CLANG
-#    pragma clang diagnostic push
-#    pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
-#endif
     // create signal fd
     sigset_t sigmask;
     sigemptyset(&sigmask);
-    for (const auto SIGNO : TERM_SIGNALS) {
+    for (const auto SIGNO : HANDLED_SIGNALS) {
         sigaddset(&sigmask, SIGNO);
     }
 
@@ -108,9 +105,6 @@ int main(int argc, char **argv) {
         perror("signal_fd");
         return EX_OSERR;
     }
-#ifdef COMPILER_CLANG
-#    pragma clang diagnostic pop
-#endif
 
     // all command line arguments
     options.add_options("network")(
@@ -190,7 +184,10 @@ int main(int argc, char **argv) {
     options.add_options("other")("license", "show licences (short)");
     options.add_options("other")("license-full", "show licences (full license text)");
     options.add_options("signal")(
-            "k,signal", "send SIGUSR to process on writing modbus commands", cxxopts::value<std::vector<pid_t>>());
+            "k,signal", "send SIGUSR1 to process on writing modbus commands", cxxopts::value<std::vector<pid_t>>());
+    options.add_options("signal")("signal-register",
+                                  "allow processes to register themselves for receiving SIGUSR1 on writing modbus "
+                                  "commands by sending SIGUSR1.");
 
     // parse arguments
     cxxopts::ParseResult args;
@@ -450,6 +447,7 @@ int main(int argc, char **argv) {
             Mb_Proc_Signal::get_instance().add_process(proc);
         }
     }
+    if (args.count("signal-register") > 0) SIGNAL_PROCESS = true;
 
 
     // create modbus client
@@ -457,6 +455,7 @@ int main(int argc, char **argv) {
     try {
         client = std::make_unique<Modbus::TCP::Client_Poll>(args["host"].as<std::string>(),
                                                             args["service"].as<std::string>(),
+                                                            args["signal-register"].count() > 0,
                                                             mb_mappings,
 #ifdef OS_LINUX
                                                             args["tcp-timeout"].as<std::size_t>(),

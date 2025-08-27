@@ -5,6 +5,7 @@
 
 #include "Modbus_TCP_Client_poll.hpp"
 
+#include "Mb_Proc_Signal.hpp"
 #include "Print_Time.hpp"
 #include "sa_to_str.hpp"
 
@@ -13,6 +14,7 @@
 #include <netinet/tcp.h>
 #include <sstream>
 #include <stdexcept>
+#include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <system_error>
 
@@ -31,14 +33,15 @@ static constexpr long SEMAPHORE_ERROR_DEC = 1;
 static constexpr long SEMAPHORE_ERROR_MAX = 1000;
 
 //* maximum time to wait for semaphore (100ms)
-static constexpr struct timespec SEMAPHORE_MAX_TIME = {0, 100'000};
+static constexpr struct timespec SEMAPHORE_MAX_TIME = {.tv_sec = 0, .tv_nsec = 100'000};
 
 Client_Poll::Client_Poll(const std::string &host,
                          const std::string &service,
+                         bool               allow_sigusr1,
                          modbus_mapping_t  *mapping,
                          std::size_t        tcp_timeout,  // NOLINT
                          std::size_t        max_clients)         // NOLINT
-    : max_clients(max_clients), poll_fds(max_clients + 2, {0, 0, 0}) {
+    : max_clients(max_clients), poll_fds(max_clients + 2, {0, 0, 0}), allow_sigusr1(allow_sigusr1) {
     const char *host_str = "::";
     if (!(host.empty() || host == "any")) host_str = host.c_str();
 
@@ -82,10 +85,11 @@ Client_Poll::Client_Poll(const std::string &host,
 
 Client_Poll::Client_Poll(const std::string                              &host,
                          const std::string                              &service,
+                         bool                                            allow_sigusr1,
                          std::array<modbus_mapping_t *, MAX_CLIENT_IDS> &mappings,
                          std::size_t                                     tcp_timeout,  // NOLINT
                          std::size_t                                     max_clients)                                      // NOLINT
-    : max_clients(max_clients), poll_fds(max_clients + 2, {0, 0, 0}) {
+    : max_clients(max_clients), poll_fds(max_clients + 2, {0, 0, 0}), allow_sigusr1(allow_sigusr1) {
     const char *host_str = "::";
     if (!(host.empty() || host == "any")) host_str = host.c_str();
 
@@ -311,10 +315,33 @@ Client_Poll::run_t Client_Poll::run(int  signal_fd,
             if (fd.revents & POLLNVAL) throw std::logic_error("poll (server socket) returned POLLNVAL");
             if (fd.revents & POLLERR) throw std::logic_error("poll (signal fd) returned POLLERR");
             if (fd.revents & POLLHUP) throw std::logic_error("poll (signal fd) returned POLLHUP");
-            if (fd.revents & POLLIN) return run_t::term_signal;
-            std::ostringstream sstr;
-            sstr << "poll (signal fd) returned unknown revent: " << fd.revents;
-            throw std::logic_error(sstr.str());
+            if (fd.revents & POLLIN) {
+                signalfd_siginfo siginfo {};
+                const auto       read_size = read(signal_fd, &siginfo, sizeof(siginfo));
+                if (read_size == -1) {
+                    throw std::system_error(errno, std::generic_category(), "Failed to read signalfd");
+                }
+
+                if (siginfo.ssi_signo == SIGUSR1 && allow_sigusr1) {
+                    const auto pid = siginfo.ssi_pid;
+                    try {
+                        Mb_Proc_Signal::get_instance().add_process(static_cast<pid_t>(pid));
+                        std::cerr << Print_Time::iso << " INFO: process " << pid
+                                  << " registered for SIGUSR1 on writing modbus commands\n";
+                    } catch (const std::runtime_error &err) {
+                        std::cerr << Print_Time::iso << " WARNING: process " << pid
+                                  << " registered for SIGUSR1: " << err.what() << "\n";
+                    }
+                    return run_t::ok;
+
+                } else {
+                    return run_t::term_signal;
+                }
+            } else {
+                std::ostringstream sstr;
+                sstr << "poll (signal fd) returned unknown revent: " << fd.revents;
+                throw std::logic_error(sstr.str());
+            }
         }
     }
 
